@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { ChevronDown, Check, Mic, ChevronUp, MicOff, CheckCircle, Volume2, Filter, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, PersonStanding, User, Users2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, User, Users2 } from 'lucide-react';
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,21 @@ type User = {
   id: string;
   name: string;
 };
+
+interface APIQuestionOption {
+  text: string;
+  correct: boolean;
+}
+
+interface APIQuestion {
+  questionText: string;
+  options: APIQuestionOption[];
+}
+
+interface APIResponse {
+  questions: APIQuestion[];
+}
+
 export type SupportedLanguage =
   | "en-IN"
   | "en-US"
@@ -74,6 +89,54 @@ export default function TeacherPollRoom() {
   const navigate = useNavigate();
   const roomCode = params.code;
   const { user } = useAuthStore();
+
+  // Helper Hooks - defined at the top to avoid temporal dead zone
+  const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
+    const correctOption = questionData.options[questionData.correctOptionIndex];
+    let newCorrectIndex = questionData.correctOptionIndex;
+    let filteredOptions: string[] = [];
+
+    if (questionData.options.length <= 4) {
+      filteredOptions = [...questionData.options, ...Array(4 - questionData.options.length).fill("")];
+    } else {
+      const incorrectOptions = questionData.options
+        .filter((_, idx) => idx !== questionData.correctOptionIndex)
+        .filter(opt => opt.trim() !== ""); 
+
+      const shuffledIncorrect = incorrectOptions
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+
+      if (questionData.correctOptionIndex < 4) {
+        filteredOptions = Array(4).fill("");
+        filteredOptions[questionData.correctOptionIndex] = correctOption;
+
+        let incorrectIndex = 0;
+        for (let i = 0; i < 4; i++) {
+          if (i !== questionData.correctOptionIndex && incorrectIndex < shuffledIncorrect.length) {
+            filteredOptions[i] = shuffledIncorrect[incorrectIndex++];
+          }
+        }
+      } else {
+        newCorrectIndex = Math.floor(Math.random() * 4);
+        filteredOptions = Array(4).fill("");
+        filteredOptions[newCorrectIndex] = correctOption;
+
+        let incorrectIndex = 0;
+        for (let i = 0; i < 4; i++) {
+          if (i !== newCorrectIndex && incorrectIndex < shuffledIncorrect.length) {
+            filteredOptions[i] = shuffledIncorrect[incorrectIndex++];
+          }
+        }
+      }
+    }
+
+    return {
+      ...questionData,
+      options: filteredOptions,
+      correctOptionIndex: newCorrectIndex
+    };
+  }, []);
   // Existing state
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
@@ -92,8 +155,15 @@ export default function TeacherPollRoom() {
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
   const [questionSpec, setQuestionSpec] = useState("");
   const [selectedModel, setSelectedModel] = useState("deepseek-r1:70b");
-  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [questionCount, setQuestionCount] = useState<number>(3);
+  // Queue for auto-generated questions while live recording is ongoing.
+  // These are hidden from the UI until the teacher stops the mic.
+  const [queuedGeneratedQuestions, setQueuedGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
+  const pendingTextChunksRef = useRef<string[]>([]);
+  const processingQueueRef = useRef(false);
+  const processedWordsRef = useRef<number>(0);
+  const bufferTextRef = useRef<string>("");
+  const queuedGeneratedQuestionsRef = useRef<GeneratedQuestion[]>([]);
 
   // New state for member names toggle
   const [showMemberNames, setShowMemberNames] = useState<Record<string, boolean>>({});
@@ -112,12 +182,16 @@ export default function TeacherPollRoom() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [useWhisper, setUseWhisper] = useState(false);
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | undefined>(undefined);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // UI state for queued question viewer shown after mic stops
+  const [showQueuedViewer, setShowQueuedViewer] = useState(false);
+  const [queuedViewerIndex, setQueuedViewerIndex] = useState(0);
+  const [isProcessing,setIsProcessing] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
 
   // Whisper transcription state and Whisper service for speech-to-text
   const transcriber = useTranscriber();
@@ -140,6 +214,76 @@ export default function TeacherPollRoom() {
     };
   }, [roomCode]);
 
+    const displayTranscript =
+    liveTranscript + (interimTranscript ? " " + interimTranscript : "");
+
+    // Process pending text chunks sequentially and store results in queuedGeneratedQuestionsRef
+  const processPendingQueue = useCallback(async () => {
+    if (processingQueueRef.current) return;
+    processingQueueRef.current = true;
+    
+    console.log(`[Queue] Starting to process ${pendingTextChunksRef.current.length} pending chunks`);
+    
+    while (pendingTextChunksRef.current.length > 0) {
+      const chunk = pendingTextChunksRef.current.shift();
+      if (!chunk) continue;
+      console.log(`[Queue] Processing chunk of length ${chunk.split(/\s+/).filter(Boolean).length} words`);
+      try {
+        const formData = new FormData();
+        formData.append('transcript', chunk);
+        if (questionSpec) formData.append('questionSpec', questionSpec);
+        formData.append('model', selectedModel);
+        formData.append('questionCount', questionCount.toString());
+
+        const response = await api.post(`/livequizzes/rooms/${roomCode}/generate-questions`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const rawQuestions = response.data.questions || [];
+
+        const cleanQuestions = rawQuestions
+          .filter((q: APIQuestion) => typeof q.questionText === 'string' && q.questionText.trim() !== '')
+          .map((q: APIQuestion): GeneratedQuestion => {
+            const options = Array.isArray(q.options) ? q.options.map((opt) => opt.text ?? '') : [];
+            const correctOptionIndex = Array.isArray(q.options) ? q.options.findIndex((opt) => opt.correct) : 0;
+
+            const validCorrectOptionIndex = correctOptionIndex >= 0 && correctOptionIndex < options.length
+              ? correctOptionIndex
+              : 0;
+
+            return {
+              question: q.questionText,
+              options: options,
+              correctOptionIndex: validCorrectOptionIndex,
+            };
+          });
+
+        const filteredQuestions = cleanQuestions.map((q: GeneratedQuestion) => filterQuestionOptions(q));
+
+        if (filteredQuestions.length > 0) {
+          console.log(`[Questions] Generated ${filteredQuestions.length} new questions from chunk`);
+          console.log(`[Questions] Queue status: Current: ${queuedGeneratedQuestionsRef.current.length}, Adding: ${filteredQuestions.length}`);
+          queuedGeneratedQuestionsRef.current = [...queuedGeneratedQuestionsRef.current, ...filteredQuestions];
+          setQueuedGeneratedQuestions([...queuedGeneratedQuestionsRef.current]);
+          console.log(`[Questions] New total in queue: ${queuedGeneratedQuestionsRef.current.length}`);
+        }
+      } catch (err) {
+        console.error('Failed to process queued chunk', err);
+      }
+    }
+
+    processingQueueRef.current = false;
+  }, [questionSpec, selectedModel, questionCount, roomCode, filterQuestionOptions]);
+
+  // Enqueue a text chunk and start processing the queue
+  const enqueueTextChunk = useCallback((textChunk: string) => {
+    if (!textChunk || !textChunk.trim()) return;
+    pendingTextChunksRef.current.push(textChunk.trim());
+    // start processing (fire-and-forget)
+    void processPendingQueue();
+  }, [processPendingQueue]);
+
+
   useEffect(() => {
     if (transcriber.output?.text) {
       setTranscript(transcriber.output.text);
@@ -152,54 +296,66 @@ export default function TeacherPollRoom() {
     setIsProcessing(transcriber.isBusy);
   }, [transcriber.isBusy]);
 
-
+  // Reset auto-generation buffers when manually clearing GenAI data
   useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = language;
+    // sync ref with state
+    queuedGeneratedQuestionsRef.current = queuedGeneratedQuestions;
+  }, [queuedGeneratedQuestions]);
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
 
-      recognition.onresult = (event: any) => {
-        let interim = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            setLiveTranscript((prev) => prev + " " + result[0].transcript);
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-        setInterimTranscript(interim);
-      };
 
-      recognition.onend = () => {
-        // setIsListening(false);
-        // setIsRecording(false);
-        const IS_FROM_ONEND = true;
-        handleRecordingToggle(IS_FROM_ONEND);
-      };
-      recognition.onerror = (event: any) => console.error(event.error);
-
-      recognitionRef.current = recognition;
-    } else {
-      toast.error("Web Speech API is not supported in this browser.");
+  // Reset queue buffers when starting/stopping recording
+  useEffect(() => {
+    if (isRecording || isLiveRecordingActive) {
+      processedWordsRef.current = 0;
+      pendingTextChunksRef.current = [];
+      queuedGeneratedQuestionsRef.current = [];
+      setQueuedGeneratedQuestions([]);
     }
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [language]);
+  }, [isRecording, isLiveRecordingActive]);
 
-  const displayTranscript =
-    liveTranscript + (interimTranscript ? " " + interimTranscript : "");
+  // Watch Whisper live chunks and enqueue 100-word checkpoints
+  useEffect(() => {
+    if (!useWhisper) return;
+    // Build buffer text from accumulated chunks
+    const text = (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim();
+    bufferTextRef.current = text;
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    while (words.length - processedWordsRef.current >= 100) {
+      const chunkWords = words.slice(processedWordsRef.current, processedWordsRef.current + 100).join(" ");
+      processedWordsRef.current += 100;
+      enqueueTextChunk(chunkWords);
+    }
+  }, [transcriber.accumulatedChunks, useWhisper, enqueueTextChunk]);
 
-  const handleRecordingToggle = async (isFromOnEnd?: boolean) => {
+  // Watch non-Whisper live transcript (Web Speech API) and enqueue 100-word checkpoints
+  useEffect(() => {
+    if (useWhisper) return;
+    const text = displayTranscript.trim();
+    bufferTextRef.current = text;
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    while (words.length - processedWordsRef.current >= 100) {
+      const chunkWords = words.slice(processedWordsRef.current, processedWordsRef.current + 100).join(" ");
+      processedWordsRef.current += 100;
+      enqueueTextChunk(chunkWords);
+    }
+  }, [displayTranscript, useWhisper, enqueueTextChunk]);
+
+    const updateAudioLevel = useCallback(() => {
+    if (analyserRef.current) {
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+
+      const frequencyBars = Array.from(dataArray.slice(0, 16)).map(
+        (value) => value / 255
+      );
+      setFrequencyData(frequencyBars);
+    }
+  }, []);
+
+   const handleRecordingToggle = useCallback(async (isFromOnEnd?: boolean) => {
     if (isRecording || isFromOnEnd) {
       setIsRecording(false);
       setIsListening(false);
@@ -222,6 +378,51 @@ export default function TeacherPollRoom() {
 
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      // When recording stops, flush any remaining text (<100 words) into queue and
+      // wait for queued processing to finish, then reveal the generated questions.
+      try {
+        // Determine current buffer based on mode
+        const textBuffer = useWhisper
+          ? (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim()
+          : displayTranscript.trim();
+
+        bufferTextRef.current = textBuffer;
+
+        const words = textBuffer ? textBuffer.split(/\s+/).filter(Boolean) : [];
+        const remaining = words.length - processedWordsRef.current;
+        if (remaining > 0) {
+          const remainderText = words.slice(processedWordsRef.current, processedWordsRef.current + remaining).join(" ");
+          processedWordsRef.current += remaining;
+          enqueueTextChunk(remainderText);
+        }
+
+        // Wait for queue to finish processing
+        while (processingQueueRef.current || pendingTextChunksRef.current.length > 0) {
+          // small sleep
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 200));
+        }
+
+        // Move queued generated questions into visible generatedQuestions list
+        if (queuedGeneratedQuestionsRef.current.length > 0) {
+          const queued = queuedGeneratedQuestionsRef.current;
+          const prevLen = generatedQuestions.length;
+          console.log(`[Final] Processing completed - Words processed: ${processedWordsRef.current}`);
+          console.log(`[Final] Total questions generated: ${queued.length}`);
+          console.log(`[Final] Questions per 100 words: ${(queued.length / (processedWordsRef.current / 100)).toFixed(2)}`);
+          setGeneratedQuestions((prev) => [...prev, ...queued]);
+          setShowPreview(true);
+          // open the single-question viewer starting at the first newly added question
+          setShowQueuedViewer(true);
+          setQueuedViewerIndex(prevLen);
+          // clear queued refs/state
+          queuedGeneratedQuestionsRef.current = [];
+          setQueuedGeneratedQuestions([]);
+          toast.success("Generated questions are ready");
+        }
+      } catch (err) {
+        console.error("Error finalizing queued question generation:", err);
       }
     } else {
       try {
@@ -255,21 +456,71 @@ export default function TeacherPollRoom() {
         console.error("Error accessing microphone:", error);
       }
     }
-  };
+  }, [
+    isRecording,
+    setIsRecording,
+    setIsListening,
+    setIsLiveRecordingActive,
+    useWhisper,
+    transcriber.accumulatedChunks,
+    displayTranscript,
+    enqueueTextChunk,
+    generatedQuestions.length,
+    setGeneratedQuestions,
+    setShowPreview,
+    setShowQueuedViewer,
+    setQueuedViewerIndex,
+    setQueuedGeneratedQuestions,
+    updateAudioLevel,
+    setInterimTranscript
+  ]);
 
-  const updateAudioLevel = () => {
-    if (analyserRef.current) {
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-      analyserRef.current.getByteFrequencyData(dataArray);
 
-      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language;
 
-      const frequencyBars = Array.from(dataArray.slice(0, 16)).map(
-        (value) => value / 255
-      );
-      setFrequencyData(frequencyBars);
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            setLiveTranscript((prev) => prev + " " + result[0].transcript);
+          } else {
+            interim += result[0].transcript;
+          }
+        }
+        setInterimTranscript(interim);
+      };
+
+      recognition.onend = () => {
+        // setIsListening(false);
+        // setIsRecording(false);
+        const IS_FROM_ONEND = true;
+        handleRecordingToggle(IS_FROM_ONEND);
+      };
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => console.error(event.error);
+
+      recognitionRef.current = recognition;
+    } else {
+      toast.error("Web Speech API is not supported in this browser.");
     }
-  };
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [language, handleRecordingToggle]);
+
+
+
 
   const handleAudioFromRecording = async (data: Blob) => {
     if (!data) return;
@@ -282,7 +533,6 @@ export default function TeacherPollRoom() {
 
     setIsProcessing(true);
 
-    const blobUrl = URL.createObjectURL(audioBlob);
     const fileReader = new FileReader();
 
     fileReader.onloadend = async () => {
@@ -311,7 +561,7 @@ export default function TeacherPollRoom() {
     transcriber.start(audioBuffer);
   };
 
-  if (!roomCode) return <div>Loading...</div>;
+  // Note: render guard is applied later after hooks to keep hook order stable
 
   const toggleMemberNames = (pollQuestion: string) => {
     setShowMemberNames(prev => ({
@@ -329,9 +579,14 @@ export default function TeacherPollRoom() {
 
       toast.success("Room ended successfully");
       navigate({ to: '/teacher/pollroom' });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error ending room:', error);
-      toast.error(error.response?.data?.message || "Failed to end room");
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        toast.error(apiError.response?.data?.message || "Failed to end room");
+      } else {
+        toast.error("Failed to end room");
+      }
     } finally {
       setIsEndingRoom(false);
       setShowEndRoomConfirm(false);
@@ -370,6 +625,86 @@ export default function TeacherPollRoom() {
     setIsTranscribing(!!transcriber.output?.isBusy);
   }, [transcriber.output?.isBusy]);
 
+
+    const generateQuestions = useCallback(async () => {
+    if (transcriber.output?.isBusy || isRecording || isListening) {
+      return;
+    }
+
+    if (!transcript && !transcriber.output?.text && !displayTranscript.trim()) {
+      toast.error("Please provide YouTube URL, upload file, or record audio");
+      return;
+    }
+    const textToUse = transcript || transcriber.output?.text || displayTranscript.trim();
+    if (!textToUse) {
+      toast.error("No transcript available to generate questions from");
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const formData = new FormData();
+      formData.append('transcript', textToUse);
+      if (questionSpec) formData.append('questionSpec', questionSpec);
+      formData.append('model', selectedModel);
+      formData.append('questionCount', questionCount.toString()); // Question count
+
+      const response = await api.post<APIResponse>(`/livequizzes/rooms/${roomCode}/generate-questions`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const rawQuestions = response.data.questions || [];
+
+      const cleanQuestions = rawQuestions
+        .filter((q) => typeof q.questionText === 'string' && q.questionText.trim() !== '')
+        .map((q): GeneratedQuestion => {
+          const options = Array.isArray(q.options) ? q.options.map((opt) => opt.text ?? '') : [];
+          const correctOptionIndex = Array.isArray(q.options) ? q.options.findIndex((opt) => opt.correct) : 0;
+
+          const validCorrectOptionIndex = correctOptionIndex >= 0 && correctOptionIndex < options.length
+            ? correctOptionIndex
+            : 0;
+
+          return {
+            question: q.questionText,
+            options: options,
+            correctOptionIndex: validCorrectOptionIndex,
+          };
+        });
+
+      if (cleanQuestions.length <= 0) {
+        toast.error("No questions generated")
+        return
+      }
+      const filteredQuestions = cleanQuestions.map((q: GeneratedQuestion) => filterQuestionOptions(q));
+      setGeneratedQuestions(filteredQuestions);
+      setShowPreview(true);
+      toast.success(`Generated ${filteredQuestions.length} questions successfully!`);
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        toast.error(apiError.response?.data?.message || "Failed to generate questions");
+      } else {
+        toast.error("Failed to generate questions");
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [
+    transcript,
+    transcriber.output?.isBusy,
+    transcriber.output?.text,
+    displayTranscript,
+    isRecording,
+    isListening,
+    setIsGenerating,
+    filterQuestionOptions,
+    questionCount,
+    questionSpec,
+    roomCode,
+    selectedModel
+  ]);
+
   useEffect(() => {
     const text = transcriber.output?.text;
     const isComplete = !transcriber.output?.isBusy;
@@ -395,7 +730,7 @@ export default function TeacherPollRoom() {
       generateQuestions();
       setIsGenerateClicked(false);
     }
-  }, [transcriber.output?.isBusy, transcriber.output?.text, isGenerateClicked]);
+  }, [transcriber.output?.isBusy, transcriber.output?.text, isGenerateClicked, generateQuestions]);
 
   interface ModelSelectorProps {
     selectedModel: string;
@@ -463,66 +798,8 @@ export default function TeacherPollRoom() {
     );
   };
 
-  const generateQuestions = async () => {
-    if (transcriber.output?.isBusy || isRecording || isListening) {
-      return;
-    }
 
-    if (!transcript && !transcriber.output?.text && !displayTranscript.trim()) {
-      toast.error("Please provide YouTube URL, upload file, or record audio");
-      return;
-    }
-    const textToUse = transcript || transcriber.output?.text || displayTranscript.trim();
-    if (!textToUse) {
-      toast.error("No transcript available to generate questions from");
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const formData = new FormData();
-      formData.append('transcript', textToUse);
-      if (questionSpec) formData.append('questionSpec', questionSpec);
-      formData.append('model', selectedModel);
-      formData.append('questionCount', questionCount.toString()); // Question count
 
-      const response = await api.post(`/livequizzes/rooms/${roomCode}/generate-questions`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      const rawQuestions = response.data.questions || [];
-
-      const cleanQuestions = rawQuestions
-        .filter((q: any) => typeof q.questionText === 'string' && q.questionText.trim() !== '')
-        .map((q: any): GeneratedQuestion => {
-          const options = Array.isArray(q.options) ? q.options.map((opt: any) => opt.text ?? '') : [];
-          const correctOptionIndex = Array.isArray(q.options) ? q.options.findIndex((opt: any) => opt.correct) : 0;
-
-          const validCorrectOptionIndex = correctOptionIndex >= 0 && correctOptionIndex < options.length
-            ? correctOptionIndex
-            : 0;
-
-          return {
-            question: q.questionText,
-            options: options,
-            correctOptionIndex: validCorrectOptionIndex,
-          };
-        });
-
-      if (cleanQuestions.length <= 0) {
-        toast.error("No questions generated")
-        return
-      }
-      const filteredQuestions = cleanQuestions.map((q: GeneratedQuestion) => filterQuestionOptions(q));
-      setGeneratedQuestions(filteredQuestions);
-      setShowPreview(true);
-      toast.success(`Generated ${filteredQuestions.length} questions successfully!`);
-    } catch (error: any) {
-      console.error('Error generating questions:', error);
-      toast.error(error.response?.data?.message || "Failed to generate questions");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleGenerateClick = () => {
     setIsGenerateClicked(true);
@@ -551,61 +828,17 @@ export default function TeacherPollRoom() {
     toast.success("Question deleted");
   };
 
-  const filterQuestionOptions = (questionData: GeneratedQuestion): GeneratedQuestion => {
-    const correctOption = questionData.options[questionData.correctOptionIndex];
-    let newCorrectIndex = questionData.correctOptionIndex;
-    let filteredOptions: string[] = [];
+  // Implementation is handled by the useCallback version above
 
-    if (questionData.options.length <= 4) {
-      filteredOptions = [...questionData.options, ...Array(4 - questionData.options.length).fill("")];
-    } else {
-      const incorrectOptions = questionData.options
-        .filter((_, idx) => idx !== questionData.correctOptionIndex)
-        .filter(opt => opt.trim() !== ""); // Filtering out empty options
 
-      const shuffledIncorrect = incorrectOptions
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
-
-      if (questionData.correctOptionIndex < 4) {
-        filteredOptions = Array(4).fill("");
-        filteredOptions[questionData.correctOptionIndex] = correctOption;
-
-        let incorrectIndex = 0;
-        for (let i = 0; i < 4; i++) {
-          if (i !== questionData.correctOptionIndex && incorrectIndex < shuffledIncorrect.length) {
-            filteredOptions[i] = shuffledIncorrect[incorrectIndex++];
-          }
-        }
-      } else {
-        newCorrectIndex = Math.floor(Math.random() * 4);
-        filteredOptions = Array(4).fill("");
-        filteredOptions[newCorrectIndex] = correctOption;
-
-        let incorrectIndex = 0;
-        for (let i = 0; i < 4; i++) {
-          if (i !== newCorrectIndex && incorrectIndex < shuffledIncorrect.length) {
-            filteredOptions[i] = shuffledIncorrect[incorrectIndex++];
-          }
-        }
-      }
-    }
-
-    return {
-      ...questionData,
-      options: filteredOptions,
-      correctOptionIndex: newCorrectIndex
-    };
-  };
-
-  const selectGeneratedQuestion = (questionData: GeneratedQuestion) => {
+  const selectGeneratedQuestion = useCallback((questionData: GeneratedQuestion) => {
     // Filter the question to ensure it has exactly 4 options
     const filteredQuestion = filterQuestionOptions(questionData);
 
     setQuestion(filteredQuestion.question);
     setOptions(filteredQuestion.options);
     setCorrectOptionIndex(filteredQuestion.correctOptionIndex);
-  };
+  }, [filterQuestionOptions, setQuestion, setOptions, setCorrectOptionIndex]);
 
   const editGeneratedQuestion = (index: number, field: string, value: string | number) => {
     const updated = [...generatedQuestions];
@@ -655,8 +888,54 @@ export default function TeacherPollRoom() {
       cancelAnimationFrame(animationFrameRef.current);
     }
     setAudioManagerKey(Date.now());
+    // reset auto-generation buffers
+    processedWordsRef.current = 0;
+    pendingTextChunksRef.current = [];
+    queuedGeneratedQuestionsRef.current = [];
+    setQueuedGeneratedQuestions([]);
+    bufferTextRef.current = "";
+
     toast.success("Cleared all data");
   };
+
+  // Reset queue buffers when starting/stopping recording
+  useEffect(() => {
+    if (isRecording || isLiveRecordingActive) {
+      processedWordsRef.current = 0;
+      pendingTextChunksRef.current = [];
+      queuedGeneratedQuestionsRef.current = [];
+      setQueuedGeneratedQuestions([]);
+    }
+  }, [isRecording, isLiveRecordingActive]);
+
+  // Watch Whisper live chunks and enqueue 100-word checkpoints
+  useEffect(() => {
+    if (!useWhisper) return;
+    // Build buffer text from accumulated chunks
+    const text = (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim();
+    bufferTextRef.current = text;
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    while (words.length - processedWordsRef.current >= 100) {
+      const chunkWords = words.slice(processedWordsRef.current, processedWordsRef.current + 100).join(" ");
+      processedWordsRef.current += 100;
+      enqueueTextChunk(chunkWords);
+    }
+  }, [transcriber.accumulatedChunks, useWhisper, enqueueTextChunk]);
+
+  // Watch non-Whisper live transcript (Web Speech API) and enqueue 100-word checkpoints
+  useEffect(() => {
+    if (useWhisper) return;
+    const text = displayTranscript.trim();
+    bufferTextRef.current = text;
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    while (words.length - processedWordsRef.current >= 100) {
+      const chunkWords = words.slice(processedWordsRef.current, processedWordsRef.current + 100).join(" ");
+      processedWordsRef.current += 100;
+      enqueueTextChunk(chunkWords);
+    }
+  }, [displayTranscript, useWhisper, enqueueTextChunk]);
+
+  if (!roomCode) return <div>Loading...</div>;
 
   return (
     <main className=" bg-gradient-to-br md-px-12 px-2 md:pb-4 pb-2 from-indigo-50 to-blue-100 dark:from-gray-900 dark:to-gray-800">
@@ -1435,6 +1714,56 @@ export default function TeacherPollRoom() {
         isOpen={showStudentsModal}
         onClose={() => setShowStudentsModal(false)}
         students={students}
+      />
+
+      {/* Queued-generated single-question viewer shown after mic stops */}
+      <Modal
+        show={showQueuedViewer && generatedQuestions.length > 0}
+        title={"Generated Questions Preview"}
+        content={
+          <>
+            <div className="space-y-4">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-md border">
+                <p className="text-sm font-semibold mb-2">{generatedQuestions[queuedViewerIndex]?.question}</p>
+                <div className="space-y-2">
+                  {(generatedQuestions[queuedViewerIndex]?.options ?? []).map((opt, i) => (
+                    <div key={i} className={`p-2 rounded ${generatedQuestions[queuedViewerIndex]?.correctOptionIndex === i ? 'bg-green-100 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-700/20'}`}>
+                      <span className="text-sm">{opt || `Option ${i + 1} (empty)`}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setQueuedViewerIndex(Math.max(0, queuedViewerIndex - 1))}
+                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md"
+                >Prev</button>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, generatedQuestions.length - 1)}
+                  value={queuedViewerIndex}
+                  onChange={(e) => setQueuedViewerIndex(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <button
+                  onClick={() => setQueuedViewerIndex(Math.min(generatedQuestions.length - 1, queuedViewerIndex + 1))}
+                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md"
+                >Next</button>
+              </div>
+            </div>
+          </>
+        }
+        onClose={() => setShowQueuedViewer(false)}
+        submitText={"Use This Question"}
+        submitEnabled={true}
+        onSubmit={() => {
+          if (generatedQuestions[queuedViewerIndex]) {
+            selectGeneratedQuestion(generatedQuestions[queuedViewerIndex]);
+            setShowQueuedViewer(false);
+          }
+        }}
       />
 
       <Modal
