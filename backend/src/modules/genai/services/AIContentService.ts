@@ -294,6 +294,39 @@ ${transcriptContent}
       throw new HttpError(400, 'globalQuestionSpecification must be a non-empty array with at least one spec.');
     }
 
+    // DEVELOPMENT MODE: Return dummy questions while Ollama is not set up
+    console.log('[generateQuestions] Using dummy response mode');
+    return [
+      {
+        questionText: "What is the primary purpose of React in web development?",
+        options: [
+          { text: "Database management", correct: false, explanation: "React is not a database management system" },
+          { text: "View layer and UI components", correct: true, explanation: "React is primarily used for building user interfaces" },
+          { text: "Server-side processing", correct: false, explanation: "React is primarily client-side" },
+          { text: "Network security", correct: false, explanation: "React is not a security tool" }
+        ],
+        solution: "React is a JavaScript library for building user interfaces, particularly the view layer.",
+        isParameterized: false,
+        timeLimitSeconds: 60,
+        points: 5,
+        questionType: "SOL"
+      },
+      {
+        questionText: "Which feature of React helps in optimizing performance by comparing virtual DOM?",
+        options: [
+          { text: "Event bubbling", correct: false, explanation: "This is a general JavaScript concept" },
+          { text: "State management", correct: false, explanation: "While important, this isn't about DOM comparison" },
+          { text: "Reconciliation", correct: true, explanation: "React's reconciliation process compares virtual DOM trees" },
+          { text: "CSS-in-JS", correct: false, explanation: "This is about styling, not performance optimization" }
+        ],
+        solution: "React uses reconciliation to efficiently update the actual DOM by comparing virtual DOM trees.",
+        isParameterized: false,
+        timeLimitSeconds: 60,
+        points: 5,
+        questionType: "SOL"
+      }
+    ];
+
     const questionSpecs = globalQuestionSpecification[0];
     const allQuestions: GeneratedQuestion[] = [];
     console.log(`[generateQuestions] Model: ${model}`);
