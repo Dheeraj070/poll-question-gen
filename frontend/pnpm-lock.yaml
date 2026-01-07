@@ -126,7 +126,7 @@ importers:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       openapi-fetch:
-        specifier: ^0.15.0
+        specifier: 0.15.0
         version: 0.15.0
       openapi-react-query:
         specifier: 0.5.1
