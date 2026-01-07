@@ -1451,21 +1451,27 @@ export default function TeacherPollRoom() {
   }, [displayTranscript, useWhisper, useWhisperGGML, enqueueTextChunk]);
 
   const handleGeneratedQuestionClick = () => {
-    setShowPreview(!showPreview)
+    setShowPreview(true);
     setShowPollModal(false);
     setShowResultsModal(false);
   }
 
   const handleCreateManualPoll = () => {
-    setShowPollModal(!showPollModal);
+    setShowPollModal(true);
     setShowPreview(false)
     setShowResultsModal(false);
   };
 
   const handlePollResultsbutton = () => {
-    setShowResultsModal(!showResultsModal);
+    setShowResultsModal(true);
     setShowPreview(false)
     setShowPollModal(false);
+  };
+
+  const handleVoiceRecorderTab = () => {
+    setShowPollModal(false);
+    setShowPreview(false);
+    setShowResultsModal(false);
   };
 
   const [launchedQuestions, setLaunchedQuestions] = useState<Set<number>>(new Set());
@@ -1697,13 +1703,21 @@ export default function TeacherPollRoom() {
               {/* Desktop Navigation */}
               <div className="hidden md:flex items-center gap-2">
                 <Button
+                  variant={(!showPreview && !showPollModal && !showResultsModal) ? "default" : "outline"}
+                  onClick={handleVoiceRecorderTab}
+                  className="mr-2"
+                >
+                  <Mic className="w-4 h-4 mr-2" />
+                  Voice Recorder
+                </Button>
+                <Button
                   variant={showPreview ? "default" : "outline"}
                   onClick={handleGeneratedQuestionClick}
                   className="mr-2"
                   disabled={!generatedQuestions.length}
                 >
                   <Wand2 className="w-4 h-4 mr-2" />
-                  {showPreview ? 'Hide Questions' : 'Generated Questions'}
+                  {showPreview ? 'Generated Questions' : 'Generated Questions'}
                 </Button>
                 <Button
                   variant={showPollModal ? "default" : "outline"}
@@ -1788,6 +1802,17 @@ export default function TeacherPollRoom() {
                 </div>
                 <div className="p-4 space-y-2">
                   <Button
+                    variant={(!showPreview && !showPollModal && !showResultsModal) ? "default" : "outline"}
+                    onClick={() => {
+                      handleVoiceRecorderTab();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full justify-start"
+                  >
+                    <Mic className="w-4 h-4 mr-2" />
+                    Voice Recorder
+                  </Button>
+                  <Button
                     variant={showPreview ? "default" : "outline"}
                     onClick={() => {
                       handleGeneratedQuestionClick();
@@ -1797,7 +1822,7 @@ export default function TeacherPollRoom() {
                     disabled={!generatedQuestions.length}
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
-                    {showPreview ? 'Hide Questions' : 'Generated Questions'}
+                    {showPreview ? 'Generated Questions' : 'Generated Questions'}
                   </Button>
                   <Button
                     variant={showPollModal ? "default" : "outline"}
