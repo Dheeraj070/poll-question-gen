@@ -1,8 +1,8 @@
 import {
   Router,
-  Route,
-  RootRoute,
   redirect,
+  createRoute,
+  createRootRoute,
   createMemoryHistory,
   Outlet,
   NotFoundRoute,
@@ -34,7 +34,7 @@ import MyPolls from '@/pages/student/MyPolls'
 import RoleSelectionPage from '@/pages/roleselect'
 
 // Root route with error and notFound handling
-const rootRoute = new RootRoute({
+const rootRoute = createRootRoute({
   component: () => <Outlet />,
   notFoundComponent: NotFoundComponent,
   errorComponent: ({ error }) => {
@@ -57,7 +57,7 @@ const rootRoute = new RootRoute({
 });
 
 // Auth route - accessible only when NOT authenticated
-const authRoute = new Route({
+const authRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth',
   component: AuthPage,
@@ -77,7 +77,7 @@ const authRoute = new Route({
 });
 
 // Index route with redirect
-const indexRoute = new Route({
+const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: () => {
@@ -99,7 +99,7 @@ const indexRoute = new Route({
 });
 
 // Teacher layout route with auth check and role verification
-const teacherLayoutRoute = new Route({
+const teacherLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/teacher',
   notFoundComponent: NotFoundComponent,
@@ -127,7 +127,7 @@ const teacherLayoutRoute = new Route({
 });
 
 // Student layout route with auth check and role verification
-const studentLayoutRoute = new Route({
+const studentLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/student',
   notFoundComponent: NotFoundComponent,
@@ -155,7 +155,7 @@ const studentLayoutRoute = new Route({
 });
 
 // Role Select Page
-const roleSelectRoute = new Route({
+const roleSelectRoute = createRoute({
   getParentRoute: () => rootRoute, 
   path: '/select-role',
   beforeLoad: () => {
@@ -174,42 +174,42 @@ const roleSelectRoute = new Route({
 
 
 // Teacher dashboard route
-const teacherDashboardRoute = new Route({
+const teacherDashboardRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/home',
   component: TeacherDashboard,
 });
 
 // Teacher profile route
-const teacherProfileRoute = new Route({
+const teacherProfileRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/profile',
   component: TeacherProfile,
 });
 
 /* Teacher genAI home route
-const teacherGenAIHomeRoute = new Route({
+const teacherGenAIHomeRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/genai',
   component: GenAIHomePage,
 });*/
 
 // Teacher manage rooms route
-const teacherManageRoomsRoute = new Route({
+const teacherManageRoomsRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/manage-rooms',
   component: ManageRoom,
 }); 
 
 // Teacher poll analysis route
-const teacherPollAnalysisRoute = new Route({
+const teacherPollAnalysisRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/manage-rooms/pollanalysis/$roomId',
   component: TeacherPollAnalysis,
 });
 
 // Teacher poll room route
-export const teacherPollRoomRoute = new Route({
+export const teacherPollRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/teacher/pollroom/$code',
   beforeLoad: () => {
@@ -229,35 +229,35 @@ export const teacherPollRoomRoute = new Route({
 });
 
 // Teacher Create live Poll Room route
-const teacherCreateRoomRoute = new Route({
+const teacherCreateRoomRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/pollroom',
   component: CreatePollRoom,
 });
 
 // Teacher settings route
-const teacherSettingsRoute = new Route({
+const teacherSettingsRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/settings',
   component: TeacherSettings,
 });
 
 // Student dashboard route
-const studentDashboardRoute = new Route({
+const studentDashboardRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/home',
   component: StudentDashboard,
 });
 
 // Student profile route
-const studentProfileRoute = new Route({
+const studentProfileRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/profile',
   component: StudentProfile,
 });
 
 // Student poll room route
-const studentPollRoomRoute = new Route({
+const studentPollRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/student/pollroom/$code',
   beforeLoad: () => {
@@ -277,28 +277,28 @@ const studentPollRoomRoute = new Route({
 });
 
 // Student join room route
-const studentJoinRoomRoute = new Route({
+const studentJoinRoomRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/pollroom',
   component: JoinPollRoom,
 });
 
 // Student My Poll route
-const studentMyPollRoute = new Route({
+const studentMyPollRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/my-polls',
   component: MyPolls,
 });
 
 // Student poll analysis route
-const studentPollAnalysisRoute = new Route({
+const studentPollAnalysisRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/my-polls/$code',
   component: StudentPollAnalysis,
 });
 
 // Student settings route
-const studentSettingsRoute = new Route({
+const studentSettingsRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
   path: '/settings',
   component: StudentSettings,
