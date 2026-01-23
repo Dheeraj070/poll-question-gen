@@ -60,73 +60,25 @@ export class PollRoomController {
 
   //@Authorized(['teacher'])
   @Post('/')
-  async createRoom(@Body() body: { name: string; teacherId: string }, @Res() res: Response): Promise<any> {
-    try {
-      if (!body.name || !body.teacherId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room name and teacher ID are required',
-          data: null,
-        });
-      }
-
-      const room = await this.roomService.createRoom(body.name, body.teacherId);
-      return res.status(201).json({
-        success: true,
-        message: 'Room created successfully',
-        data: {
-          ...room,
-          inviteLink: `${appOrigins}/student/pollroom/${room.roomCode}`,
-        },
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async createRoom(@Body() body: { name: string; teacherId: string }) {
+    const room = await this.roomService.createRoom(body.name, body.teacherId);
+    return {
+      ...room,
+      inviteLink: `${appOrigins}/student/pollroom/${room.roomCode}`,
+    };
   }
 
   //@Authorized()
   @Get('/:code')
-  async getRoom(@Param('code') code: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!code) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room code is required',
-          data: null,
-        });
-      }
-
-      const room = await this.roomService.getRoomByCode(code);
-      if (!room) {
-        return res.status(404).json({
-          success: false,
-          message: 'Room not found',
-          data: null,
-        });
-      }
-      if (room.status !== 'active') {
-        return res.status(400).json({
-          success: false,
-          message: 'Room is ended',
-          data: null,
-        });
-      }
-      return res.status(200).json({
-        success: true,
-        message: 'Room retrieved successfully',
-        data: room,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
+  async getRoom(@Param('code') code: string) {
+    const room = await this.roomService.getRoomByCode(code);
+    if (!room) {
+      return { success: false, message: 'Room not found' };
     }
+    if (room.status !== 'active') {
+      return { success: false, message: 'Room is ended' };
+    }
+    return { success: true, room };  // return room data
   }  
 
   // 🔹 Create Poll in Room
@@ -134,253 +86,73 @@ export class PollRoomController {
   @Post('/:code/polls')
   async createPollInRoom(
     @Param('code') roomCode: string,
-    @Body() body: { question: string; options: string[]; correctOptionIndex: number; creatorId: string; timer?: number },
-    @Res() res: Response
-  ): Promise<any> {
-    try {
-      if (!roomCode || !body.question || !body.options || body.correctOptionIndex === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room code, question, options, and correct option index are required',
-          data: null,
-        });
+    @Body() body: { question: string; options: string[]; correctOptionIndex: number; creatorId: string; timer?: number }
+  ) {
+    const room = await this.roomService.getRoomByCode(roomCode);
+    if (!room) throw new Error('Invalid room');
+    return await this.pollService.createPoll(
+      roomCode,
+      {
+        question: body.question,
+        options: body.options,
+        correctOptionIndex: body.correctOptionIndex,
+        timer: body.timer
       }
+    );
 
-      const room = await this.roomService.getRoomByCode(roomCode);
-      if (!room) {
-        return res.status(404).json({
-          success: false,
-          message: 'Invalid room',
-          data: null,
-        });
-      }
-
-      const poll = await this.pollService.createPoll(
-        roomCode,
-        {
-          question: body.question,
-          options: body.options,
-          correctOptionIndex: body.correctOptionIndex,
-          timer: body.timer
-        }
-      );
-
-      return res.status(201).json({
-        success: true,
-        message: 'Poll created successfully',
-        data: poll,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
   }
 
   //@Authorized(['teacher'])
   @Get('/teacher/:teacherId')
-  async getAllRoomsByTeacher(@Param('teacherId') teacherId: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!teacherId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Teacher ID is required',
-          data: null,
-        });
-      }
-
-      const rooms = await this.roomService.getRoomsByTeacher(teacherId);
-      return res.status(200).json({
-        success: true,
-        message: 'Rooms retrieved successfully',
-        data: rooms,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getAllRoomsByTeacher(@Param('teacherId') teacherId: string) {
+    return await this.roomService.getRoomsByTeacher(teacherId);
   }
   //@Authorized(['teacher'])
   @Get('/teacher/:teacherId/active')
-  async getActiveRoomsByTeacher(@Param('teacherId') teacherId: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!teacherId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Teacher ID is required',
-          data: null,
-        });
-      }
-
-      const rooms = await this.roomService.getRoomsByTeacherAndStatus(teacherId, 'active');
-      return res.status(200).json({
-        success: true,
-        message: 'Active rooms retrieved successfully',
-        data: rooms,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getActiveRoomsByTeacher(@Param('teacherId') teacherId: string) {
+    return await this.roomService.getRoomsByTeacherAndStatus(teacherId, 'active');
   }
   //@Authorized(['teacher'])
   @Get('/teacher/:teacherId/ended')
-  async getEndedRoomsByTeacher(@Param('teacherId') teacherId: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!teacherId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Teacher ID is required',
-          data: null,
-        });
-      }
-
-      const rooms = await this.roomService.getRoomsByTeacherAndStatus(teacherId, 'ended');
-      return res.status(200).json({
-        success: true,
-        message: 'Ended rooms retrieved successfully',
-        data: rooms,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getEndedRoomsByTeacher(@Param('teacherId') teacherId: string) {
+    return await this.roomService.getRoomsByTeacherAndStatus(teacherId, 'ended');
   }
 
   //@Authorized(['teacher'])
   @Get('/:roomId/analysis')
-  async getPollAnalysis(@Param('roomId') roomId: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!roomId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room ID is required',
-          data: null,
-        });
-      }
-
-      const analysis = await this.roomService.getPollAnalysis(roomId);
-      return res.status(200).json({
-        success: true,
-        message: 'Poll analysis retrieved successfully',
-        data: analysis,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getPollAnalysis(@Param('roomId') roomId: string) {
+    // Fetch from service
+    const analysis = await this.roomService.getPollAnalysis(roomId);
+    return { success: true, data: analysis };
   }
 
   //@Authorized()
   @Post('/:code/polls/answer')
   async submitPollAnswer(
     @Param('code') roomCode: string,
-    @Body() body: { pollId: string; userId: string; answerIndex: number },
-    @Res() res: Response
-  ): Promise<any> {
-    try {
-      if (!roomCode || !body.pollId || !body.userId || body.answerIndex === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room code, poll ID, user ID, and answer index are required',
-          data: null,
-        });
-      }
-
-      await this.pollService.submitAnswer(roomCode, body.pollId, body.userId, body.answerIndex);
-      const updatedResults = await this.pollService.getPollResults(roomCode);
-      pollSocket.emitToRoom(roomCode,'poll-results-updated', updatedResults);
-      return res.status(200).json({
-        success: true,
-        message: 'Answer submitted successfully',
-        data: null,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+    @Body() body: { pollId: string; userId: string; answerIndex: number }
+  ) {
+    await this.pollService.submitAnswer(roomCode, body.pollId, body.userId, body.answerIndex);
+    const updatedResults = await this.pollService.getPollResults(roomCode);
+    pollSocket.emitToRoom(roomCode,'poll-results-updated', updatedResults);
+    return { success: true };
   }
 
   // Fetch Results for All Polls in Room
   //@Authorized()
   @Get('/:code/polls/results')
-  async getResultsForRoom(@Param('code') code: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!code) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room code is required',
-          data: null,
-        });
-      }
-
-      const results = await this.pollService.getPollResults(code);
-      return res.status(200).json({
-        success: true,
-        message: 'Poll results retrieved successfully',
-        data: results,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getResultsForRoom(@Param('code') code: string) {
+    return await this.pollService.getPollResults(code);
   }
 
   //@Authorized(['teacher'])
   @Post('/:code/end')
-  async endRoom(@Param('code') code: string, @Res() res: Response): Promise<any> {
-    try {
-      if (!code) {
-        return res.status(400).json({
-          success: false,
-          message: 'Room code is required',
-          data: null,
-        });
-      }
-
-      const success = await this.roomService.endRoom(code);
-      if (!success) {
-        return res.status(404).json({
-          success: false,
-          message: 'Room not found',
-          data: null,
-        });
-      }
-
-      // Emit to all clients in the room
-      pollSocket.emitToRoom(code, 'room-ended', {});
-      return res.status(200).json({
-        success: true,
-        message: 'Room ended successfully',
-        data: null,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async endRoom(@Param('code') code: string) {
+    const success = await this.roomService.endRoom(code);
+    if (!success) throw new Error('Room not found');
+    // Emit to all clients in the room
+    pollSocket.emitToRoom(code, 'room-ended', {});
+    return { success: true, message: 'Room ended successfully' };
   }
 
 @Get('/youtube-audio')

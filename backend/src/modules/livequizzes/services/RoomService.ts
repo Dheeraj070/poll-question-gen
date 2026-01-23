@@ -10,56 +10,32 @@ export class RoomService {
   private userModel = UserModel;
   private roomModel = Room;
   async createRoom(name: string, teacherId: string): Promise<RoomType> {
-    try {
-      if (!name || !teacherId) {
-        throw new Error('Room name and teacher ID are required');
-      }
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const teachername = await this.userModel.findOne({ firebaseUID: teacherId }).lean();
+    const newRoom = await new Room({
+      roomCode: code,
+      name,
+      teacherId,
+      teacherName: `${teachername?.firstName} ${teachername?.lastName}`.trim(),
+      createdAt: new Date(),
+      status: 'active',
+      polls: []
+    }).save();
 
-      const teachername = await this.userModel.findOne({ firebaseUID: teacherId }).lean();
-      const newRoom = await new Room({
-        roomCode: code,
-        name,
-        teacherId,
-        teacherName: `${teachername?.firstName} ${teachername?.lastName}`.trim(),
-        createdAt: new Date(),
-        status: 'active',
-        polls: []
-      }).save();
-
-      return newRoom.toObject();  // return plain object
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to create room');
-    }
+    return newRoom.toObject();  // return plain object
   }
 
   async getRoomByCode(code: string): Promise<RoomType | null> {
-    try {
-      if (!code) {
-        throw new Error('Room code is required');
-      }
-
-      return await Room.findOne({ roomCode: code }).populate('students','firstName email').lean();
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to get room by code');
-    }
+    return await Room.findOne({ roomCode: code }).populate('students','firstName email').lean()
   }
 
   async getRoomsByTeacher(teacherId: string, status?: 'active' | 'ended'): Promise<RoomType[]> {
-    try {
-      if (!teacherId) {
-        throw new Error('Teacher ID is required');
-      }
-
-      const query: any = { teacherId };
-      if (status) {
-        query.status = status;
-      }
-      return await Room.find(query).sort({ createdAt: -1 }).lean();
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to get rooms by teacher');
+    const query: any = { teacherId };
+    if (status) {
+      query.status = status;
     }
+    return await Room.find(query).sort({ createdAt: -1 }).lean();
   }
 
   async getUsersByIds(userIds: string[]) {
@@ -70,22 +46,17 @@ export class RoomService {
   }
   
   async getPollAnalysis(roomCode: string) {
-    try {
-      if (!roomCode) {
-        throw new Error('Room code is required');
-      }
+    // 1️⃣ Find the room by code
+    const room = await this.roomModel.findOne({ roomCode }).lean();
+    if (!room) throw new Error('Room not found');
 
-      // 1️⃣ Find the room by code
-      const room = await this.roomModel.findOne({ roomCode }).lean();
-      if (!room) throw new NotFoundError('Room not found');
-
-      const participantsMap = new Map<string, {
-        userId: string;
-        correct: number;
-        wrong: number;
-        score: number;
-        timeTaken: number;
-      }>();
+    const participantsMap = new Map<string, {
+      userId: string;
+      correct: number;
+      wrong: number;
+      score: number;
+      timeTaken: number;
+    }>();
 
     // 2️⃣ Process each poll and answers
     for (const poll of room.polls) {
@@ -167,79 +138,30 @@ export class RoomService {
       participants,
       questions,
     };
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw error;
-      }
-      throw new Error(error instanceof Error ? error.message : 'Failed to get poll analysis');
-    }
   }
   
   async getRoomsByTeacherAndStatus(teacherId: string, status: 'active' | 'ended'): Promise<RoomType[]> {
-    try {
-      if (!teacherId) {
-        throw new Error('Teacher ID is required');
-      }
-      if (!status) {
-        throw new Error('Status is required');
-      }
-
-      return await Room.find({ teacherId, status }).lean();
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to get rooms by teacher and status');
-    }
+    return await Room.find({ teacherId, status }).lean();
   }
 
   async isRoomValid(code: string): Promise<boolean> {
-    try {
-      if (!code) {
-        throw new Error('Room code is required');
-      }
-
-      const room = await Room.findOne({ roomCode: code }).lean();
-      return !!room && room.status.toLowerCase() === 'active';
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to check if room is valid');
-    }
+    const room = await Room.findOne({ roomCode: code }).lean();
+    return !!room && room.status.toLowerCase() === 'active';
   }
 
   async isRoomEnded(code: string): Promise<boolean> {
-    try {
-      if (!code) {
-        throw new Error('Room code is required');
-      }
-
-      const room = await Room.findOne({ roomCode: code }).lean();
-      return room ? room.status === 'ended' : false;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to check if room is ended');
-    }
+    const room = await Room.findOne({ roomCode: code }).lean();
+    return room ? room.status === 'ended' : false;
   }
 
   async endRoom(code: string): Promise<boolean> {
-    try {
-      if (!code) {
-        throw new Error('Room code is required');
-      }
-
-      const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
-      return !!updated;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to end room');
-    }
+    const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
+    return !!updated;
   }
 
   async canJoinRoom(code: string): Promise<boolean> {
-    try {
-      if (!code) {
-        throw new Error('Room code is required');
-      }
-
-      const room = await Room.findOne({ roomCode: code }).lean();
-      return !!room && room.status === 'active';
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to check if can join room');
-    }
+    const room = await Room.findOne({ roomCode: code }).lean();
+    return !!room && room.status === 'active';
   }
 
   async getAllRooms(): Promise<RoomType[]> {
@@ -281,54 +203,33 @@ export class RoomService {
 
 
   async enrollStudent(userId:string,roomCode:string){
-    try {
-      if (!userId || !roomCode) {
-        throw new Error('User ID and room code are required');
-      }
-
-      const room = await Room.findOne({roomCode})
-      if(!room){
-        throw new NotFoundError("Room is not found")
-      }
-      const userObjectId=new ObjectId(userId)
-      const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
-      if(isAlreadyEnrolled){
-        console.log("User Already enrolled in the course")
-        return room
-      }
-      const updatedRoom = await Room.findOneAndUpdate({roomCode},{$addToSet:{students:userObjectId}},{new:true})
-      return updatedRoom
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw error;
-      }
-      throw new Error(error instanceof Error ? error.message : 'Failed to enroll student');
+    const room = await Room.findOne({roomCode})
+    if(!room){
+      throw new NotFoundError("Room is not found")
     }
+    const userObjectId=new ObjectId(userId)
+    // const existingStudent = await Room.findOne({students:{$in:[userObjectId]}})
+    const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
+    if(isAlreadyEnrolled){
+      console.log("User Already enrolled in the course")
+      return room
+    }
+    const updatedRoom = await Room.findOneAndUpdate({roomCode},{$addToSet:{students:userObjectId}},{new:true})
+    return updatedRoom
   }
 
   async unEnrollStudent(userId:string,roomCode:string){
-    try {
-      if (!userId || !roomCode) {
-        throw new Error('User ID and room code are required');
-      }
-
-      const room = await Room.findOne({roomCode})
-      if(!room){
-        throw new NotFoundError("Room is not found")
-      }
-      const userObjectId=new ObjectId(userId)
-      const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
-      if(!isAlreadyEnrolled){
-        console.log("User Not enrolled in the course")
-        return room
-      }
-      const updatedRoom = await Room.findOneAndUpdate({roomCode},{$pull:{students:userObjectId}},{new:true})
-      return updatedRoom
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw error;
-      }
-      throw new Error(error instanceof Error ? error.message : 'Failed to unenroll student');
+    const room = await Room.findOne({roomCode})
+    if(!room){
+      throw new NotFoundError("Room is not found")
     }
+    const userObjectId=new ObjectId(userId)
+    const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
+    if(!isAlreadyEnrolled){
+      console.log("User Not enrolled in the course")
+      return room
+    }
+    const updatedRoom = await Room.findOneAndUpdate({roomCode},{$pull:{students:userObjectId}},{new:true})
+    return updatedRoom
   }
 }

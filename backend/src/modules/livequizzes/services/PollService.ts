@@ -29,148 +29,115 @@ export class PollService {
     correctOptionIndex: number;
     timer?: number;
   }) {
-    try {
-      if (!roomCode) {
-        throw new Error('Room code is required');
-      }
-      if (!data.question || !data.options || data.options.length < 2) {
-        throw new Error('Question and at least 2 options are required');
-      }
-      if (data.correctOptionIndex < 0 || data.correctOptionIndex >= data.options.length) {
-        throw new Error('Invalid correct option index');
-      }
+    const pollId = crypto.randomUUID();
 
-      const pollId = crypto.randomUUID();
+    const poll = {
+      _id: pollId,
+      question: data.question,
+      options: data.options,
+      correctOptionIndex: data.correctOptionIndex,
+      timer: data.timer ?? 30,
+      createdAt: new Date(),
+      answers: []
+    };
 
-      const poll = {
-        _id: pollId,
-        question: data.question,
-        options: data.options,
-        correctOptionIndex: data.correctOptionIndex,
-        timer: data.timer ?? 30,
-        createdAt: new Date(),
-        answers: []
-      };
+    const livepoll: InMemoryPoll = {
+      pollId,
+      question: data.question,
+      options: data.options,
+      correctOptionIndex: data.correctOptionIndex,
+      responses: {},
+      totalResponses: 0,
+      userResponses: new Map(),
+      timer: data.timer ?? 0, // 0 means no timer
+      timeLeft: data.timer ?? 0,
+      roomCode,
+    };
 
-      const livepoll: InMemoryPoll = {
-        pollId,
-        question: data.question,
-        options: data.options,
-        correctOptionIndex: data.correctOptionIndex,
-        responses: {},
-        totalResponses: 0,
-        userResponses: new Map(),
-        timer: data.timer ?? 0, // 0 means no timer
-        timeLeft: data.timer ?? 0,
-        roomCode,
-      };
+    await Room.updateOne(
+      { roomCode },
+      { $push: { polls: poll } }
+    );
 
-      await Room.updateOne(
-        { roomCode },
-        { $push: { polls: poll } }
-      );
+    this.activePolls.set(pollId, livepoll);
 
-      this.activePolls.set(pollId, livepoll);
-
-      pollSocket.emitToRoom(roomCode, 'new-poll', poll);
-      return poll;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to create poll');
-    }
+    pollSocket.emitToRoom(roomCode, 'new-poll', poll);
+    return poll;
   }
 
 
 
   async submitAnswer(roomCode: string, pollId: string, userId: string, answerIndex: number) {
-    try {
-      if (!roomCode || !pollId || !userId || answerIndex === undefined) {
-        throw new Error('Room code, poll ID, user ID, and answer index are required');
-      }
 
-      const poll = this.activePolls.get(pollId);
-      if (!poll || poll.roomCode !== roomCode) {
-        throw new Error('Poll not found or invalid room');
-      }
-
-      if (answerIndex < 0 || answerIndex >= poll.options.length) {
-        throw new Error('Invalid answer index');
-      }
-
-      // Update in-memory response tracking
-      const previousResponse = poll.userResponses.get(userId);
-
-      // If user already answered, decrement previous response count
-      if (previousResponse !== undefined) {
-        const prevOption = previousResponse.toString();
-        poll.responses[prevOption] = (poll.responses[prevOption] || 1) - 1;
-        poll.totalResponses--;
-      }
-
-      // Update new response
-      poll.userResponses.set(userId, answerIndex);
-      const optionKey = answerIndex.toString();
-      poll.responses[optionKey] = (poll.responses[optionKey] || 0) + 1;
-      poll.totalResponses++;
-
-      // Emit update to all clients
-      this.emitPollUpdate(roomCode, pollId);
-
-      await Room.updateOne(
-        { roomCode, "polls._id": pollId },
-        { $push: { "polls.$.answers": { userId, answerIndex, answeredAt: new Date() } } }
-      );
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to submit answer');
+    const poll = this.activePolls.get(pollId);
+    if (!poll || poll.roomCode !== roomCode) {
+      throw new Error('Poll not found or invalid room');
     }
+
+    // Update in-memory response tracking
+    const previousResponse = poll.userResponses.get(userId);
+
+    // If user already answered, decrement previous response count
+    if (previousResponse !== undefined) {
+      const prevOption = previousResponse.toString();
+      poll.responses[prevOption] = (poll.responses[prevOption] || 1) - 1;
+      poll.totalResponses--;
+    }
+
+    // Update new response
+    poll.userResponses.set(userId, answerIndex);
+    const optionKey = answerIndex.toString();
+    poll.responses[optionKey] = (poll.responses[optionKey] || 0) + 1;
+    poll.totalResponses++;
+
+    // Emit update to all clients
+    this.emitPollUpdate(roomCode, pollId);
+
+    await Room.updateOne(
+      { roomCode, "polls._id": pollId },
+      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt: new Date() } } }
+    );
   }
 
   async getPollResults(roomCode: string) {
-    try {
-      if (!roomCode) {
-        throw new Error('Room code is required');
-      }
+    const room = await Room.findOne({ roomCode });
+    if (!room) return null;
 
-      const room = await Room.findOne({ roomCode });
-      if (!room) return null;
+    const results: Record<string, Record<string, { count: number; users: { id: string; name: string }[] }>> = {};
 
-      const results: Record<string, Record<string, { count: number; users: { id: string; name: string }[] }>> = {};
+    for (const poll of room.polls) {
+      const counts = Array(poll.options.length).fill(0);
+      const userIds = poll.options.map(() => [] as string[]);
 
-      for (const poll of room.polls) {
-        const counts = Array(poll.options.length).fill(0);
-        const userIds = poll.options.map(() => [] as string[]);
-
-        for (const ans of poll.answers) {
-          if (ans.answerIndex >= 0 && ans.answerIndex < poll.options.length) {
-            counts[ans.answerIndex]++;
-            userIds[ans.answerIndex].push(ans.userId);
-          }
+      for (const ans of poll.answers) {
+        if (ans.answerIndex >= 0 && ans.answerIndex < poll.options.length) {
+          counts[ans.answerIndex]++;
+          userIds[ans.answerIndex].push(ans.userId);
         }
-        const allUserIds = [...new Set(poll.answers.map(ans => ans.userId))];
-        const users = await UserModel.find({ firebaseUID: { $in: allUserIds } }, { firebaseUID: 1, firstName: 1, lastName: 1 });
-        const userMap = new Map(users.map(user => {
-          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
-          return [user.firebaseUID, { id: user.firebaseUID, name: fullName }];
-        }));
-
-        const pollResult = poll.options.reduce((acc, opt, i) => {
-          const usersForOption = userIds[i].map(userId => {
-            const user = userMap.get(userId);
-            return user || { id: userId, name: 'Unknown User' };
-          });
-          acc[opt] = {
-            count: counts[i],
-            users: usersForOption
-          };
-          return acc;
-        }, {} as Record<string, { count: number; users: { id: string; name: string }[] }>);
-
-        results[poll.question] = pollResult;
       }
+      const allUserIds = [...new Set(poll.answers.map(ans => ans.userId))];
+      const users = await UserModel.find({ firebaseUID: { $in: allUserIds } }, { firebaseUID: 1, firstName: 1, lastName: 1 });
+      const userMap = new Map(users.map(user => {
+        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
+        return [user.firebaseUID, { id: user.firebaseUID, name: fullName }];
+      }));
 
-      return results;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to get poll results');
+      const pollResult = poll.options.reduce((acc, opt, i) => {
+        const usersForOption = userIds[i].map(userId => {
+          const user = userMap.get(userId);
+          return user || { id: userId, name: 'Unknown User' };
+        });
+        acc[opt] = {
+          count: counts[i],
+          users: usersForOption
+        };
+        return acc;
+      }, {} as Record<string, { count: number; users: { id: string; name: string }[] }>);
+
+      results[poll.question] = pollResult;
     }
+
+    return results;
   }
 
 
