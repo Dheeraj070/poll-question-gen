@@ -16,123 +16,203 @@ export class UserService extends BaseService {
   }
 
   async findOrCreateByFirebaseUID(firebaseUID: string, data: Partial<IUser>): Promise<IUser> {
-    let user = await this.userRepo.findByFirebaseUID(firebaseUID);
-    //console.log("findOrCreateByFirebaseUID - role:", user.role);
-    if (!user) {
-      const userId = await this.userRepo.create({
-        firebaseUID,
-        firstName: data.firstName || '',
-        lastName: data.lastName || '',
-        email: data.email || '',
-        avatar: data.avatar || null,
-        role: data.role || "null",
-        phoneNumber: data.phoneNumber || null,
-        institution: data.institution || null,
-        designation: data.designation || null,
-        bio: data.bio || null,
-        isVerified: data.isVerified || false,
-        dateOfBirth: data.dateOfBirth || undefined,
-        address: data.address || undefined,
-        emergencyContact: data.emergencyContact || undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      user = await this.userRepo.findById(userId);
+    try {
+      // Validate required fields
+      if (!firebaseUID) {
+        throw new Error('Firebase UID is required');
+      }
+      if (!data.email || !data.firstName || !data.lastName) {
+        throw new Error('Email, firstName, and lastName are required');
+      }
+
+      let user = await this.userRepo.findByFirebaseUID(firebaseUID);
+      
+      if (!user) {
+        const userId = await this.userRepo.create({
+          firebaseUID,
+          firstName: data.firstName || '',
+          lastName: data.lastName || '',
+          email: data.email || '',
+          avatar: data.avatar || null,
+          role: data.role || "null",
+          phoneNumber: data.phoneNumber || null,
+          institution: data.institution || null,
+          designation: data.designation || null,
+          bio: data.bio || null,
+          isVerified: data.isVerified || false,
+          dateOfBirth: data.dateOfBirth || undefined,
+          address: data.address || undefined,
+          emergencyContact: data.emergencyContact || undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        user = await this.userRepo.findById(userId);
+      }
+      return user;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to find or create user');
     }
-    return user;
   }
 
   async findByFirebaseUID(firebaseUID: string): Promise<IUser> {
-    const user = await this.userRepo.findByFirebaseUID(firebaseUID);
-    if (!user) throw new NotFoundError('User not found');
-    return user;
+    try {
+      if (!firebaseUID) {
+        throw new Error('Firebase UID is required');
+      }
+
+      const user = await this.userRepo.findByFirebaseUID(firebaseUID);
+      if (!user) throw new NotFoundError('User not found');
+      return user;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to find user');
+    }
   }
 
   async getProfile(userId: string) {
-    const user = await this.userRepo.findById(userId);
-    if (!user) throw new NotFoundError('User not found');
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
 
-    return {
-      id: user._id?.toString() || '',
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      avatar: user.avatar || null,
-      role: user.role || null,
-      phoneNumber: user.phoneNumber,
-      institution: user.institution,
-      designation: user.designation,
-      bio: user.bio,
-      isVerified: user.isVerified,
-      dateOfBirth: user.dateOfBirth,
-      address: user.address,
-      emergencyContact: user.emergencyContact,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+      const user = await this.userRepo.findById(userId);
+      if (!user) throw new NotFoundError('User not found');
+
+      return {
+        id: user._id?.toString() || '',
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        avatar: user.avatar || null,
+        role: user.role || null,
+        phoneNumber: user.phoneNumber,
+        institution: user.institution,
+        designation: user.designation,
+        bio: user.bio,
+        isVerified: user.isVerified,
+        dateOfBirth: user.dateOfBirth,
+        address: user.address,
+        emergencyContact: user.emergencyContact,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to get user profile');
+    }
   }
 
   async updateProfile(
     userId: string,
     data: Partial<Pick<IUser, 'firstName' | 'lastName' | 'avatar' | 'phoneNumber' | 'bio' | 'institution' | 'designation' | 'dateOfBirth' | 'address' | 'emergencyContact'>>
   ) {
-    const updated = await this.userRepo.updateById(userId, {
-      ...data,
-      updatedAt: new Date(),
-    });
-    if (!updated) throw new NotFoundError('User not found');
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
 
-    return {
-      id: updated._id?.toString() || '',
-      firstName: updated.firstName,
-      lastName: updated.lastName,
-      email: updated.email,
-      avatar: updated.avatar || null,
-      role: updated.role || null,
-      phoneNumber: updated.phoneNumber,
-      institution: updated.institution,
-      designation: updated.designation,
-      bio: updated.bio,
-      isVerified: updated.isVerified,
-      dateOfBirth: updated.dateOfBirth,
-      address: updated.address,
-      emergencyContact: updated.emergencyContact,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
+      const updated = await this.userRepo.updateById(userId, {
+        ...data,
+        updatedAt: new Date(),
+      });
+      if (!updated) throw new NotFoundError('User not found');
+
+      return {
+        id: updated._id?.toString() || '',
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        avatar: updated.avatar || null,
+        role: updated.role || null,
+        phoneNumber: updated.phoneNumber,
+        institution: updated.institution,
+        designation: updated.designation,
+        bio: updated.bio,
+        isVerified: updated.isVerified,
+        dateOfBirth: updated.dateOfBirth,
+        address: updated.address,
+        emergencyContact: updated.emergencyContact,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to update user profile');
+    }
   }
 
   async updateAvatar(userId: string, avatarUrl: string) {
-    const updatedUser = await this.userRepo.updateById(userId, {
-      avatar: avatarUrl,
-      updatedAt: new Date(),
-    });
-    if (!updatedUser) throw new NotFoundError('User not found');
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!avatarUrl) {
+        throw new Error('Avatar URL is required');
+      }
 
-    return {
-      success: true,
-      message: 'Avatar updated successfully',
-      avatar: updatedUser.avatar,
-    };
+      const updatedUser = await this.userRepo.updateById(userId, {
+        avatar: avatarUrl,
+        updatedAt: new Date(),
+      });
+      if (!updatedUser) throw new NotFoundError('User not found');
+
+      return {
+        success: true,
+        message: 'Avatar updated successfully',
+        avatar: updatedUser.avatar,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to update avatar');
+    }
   }
 
   async updateRoleByFirebaseUID(firebaseUID: string, role: string) {
-    if (!role || typeof role !== 'string') {
-      throw new Error('Role must be a non-empty string');
+    try {
+      if (!firebaseUID) {
+        throw new Error('Firebase UID is required');
+      }
+      if (!role || typeof role !== 'string') {
+        throw new Error('Role must be a non-empty string');
+      }
+
+      const updatedUser = await this.userRepo.updateRole(firebaseUID, role);
+      if (!updatedUser) {
+        throw new NotFoundError('User not found');
+      }
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to update user role');
     }
-
-    const updatedUser = await this.userRepo.updateRole(firebaseUID, role);
-
-
-    if (!updatedUser) {
-      throw new Error('User not found');
-    }
-    return updatedUser;
   }
 
-  async findUserByEmail(email:string):Promise<IUser>{
-    console.log(email)
-    const result = await this.userRepo.findByEmail(email)
-    return result
+  async findUserByEmail(email: string): Promise<IUser> {
+    try {
+      if (!email) {
+        throw new Error('Email is required');
+      }
+
+      const result = await this.userRepo.findByEmail(email);
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new Error(error instanceof Error ? error.message : 'Failed to find user by email');
+    }
   }
 }
