@@ -14,9 +14,7 @@ import {
   NotFoundError,
   Patch,
   BadRequestError,
-  Res,
 } from 'routing-controllers';
-import { Response } from 'express';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import {
   UserByFirebaseUIDParams,
@@ -50,23 +48,10 @@ export class UserController {
   @ResponseSchema(UserNotFoundErrorResponse, { statusCode: 404 })
   async getUserByFirebaseUID(
     @Params() params: UserByFirebaseUIDParams,
-    @Res() res: Response,
-  ): Promise<any> {
-    try {
-      const user = await this.userService.findByFirebaseUID(params.firebaseUID);
-      return res.status(200).json({
-        success: true,
-        message: 'User retrieved successfully',
-        data: new User(user),
-      });
-    } catch (error) {
-      const statusCode = error instanceof NotFoundError ? 404 : 500;
-      return res.status(statusCode).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  ): Promise<User> {
+    const user = await this.userService.findByFirebaseUID(params.firebaseUID);
+    if (!user) throw new NotFoundError('User not found');
+    return new User(user);
   }
 
   /**
@@ -82,40 +67,27 @@ export class UserController {
   async findOrCreateProfileByFirebaseUID(
     @Param('firebaseUID') firebaseUID: string,
     @Body() body: CreateUserProfileBody,
-    @Res() res: Response,
-  ): Promise<any> {
-    try {
-      const user = await this.userService.findOrCreateByFirebaseUID(firebaseUID, body);
-      return res.status(201).json({
-        success: true,
-        message: 'User profile created or retrieved successfully',
-        data: {
-          id: user._id?.toString() || '',
-          firebaseUID: user.firebaseUID,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          avatar: user.avatar || null,
-          role: user.role || null,
-          dateOfBirth: user.dateOfBirth || null,
-          address: user.address || null,
-          emergencyContact: user.emergencyContact || null,
-          phoneNumber: user.phoneNumber || null,
-          institution: user.institution || null,
-          designation: user.designation || null,
-          bio: user.bio || null,
-          isVerified: user.isVerified || false,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  ) {
+    const user = await this.userService.findOrCreateByFirebaseUID(firebaseUID, body);
+    return {
+      id: user._id?.toString() || '',
+      firebaseUID: user.firebaseUID,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar || null,
+      role: user.role || null,
+      dateOfBirth: user.dateOfBirth || null,
+      address: user.address || null,
+      emergencyContact: user.emergencyContact || null,
+      phoneNumber: user.phoneNumber || null,
+      institution: user.institution || null,
+      designation: user.designation || null,
+      bio: user.bio || null,
+      isVerified: user.isVerified || false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   /**
@@ -127,22 +99,10 @@ export class UserController {
   @Get('/:id/profile')
   @HttpCode(200)
   @ResponseSchema(UserProfileResponse)
-  async getProfile(@Param('id') id: string, @Res() res: Response): Promise<any> {
-    try {
-      const user = await this.userService.getProfile(id);
-      return res.status(200).json({
-        success: true,
-        message: 'User profile retrieved successfully',
-        data: user,
-      });
-    } catch (error) {
-      const statusCode = error instanceof NotFoundError ? 404 : 500;
-      return res.status(statusCode).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getProfile(@Param('id') id: string) {
+    const user = await this.userService.getProfile(id);
+    if (!user) throw new NotFoundError('User not found');
+    return user;
   }
 
   /**
@@ -157,23 +117,9 @@ export class UserController {
   async updateProfile(
     @Param('id') id: string,
     @Body() body: UpdateUserProfileBody,
-    @Res() res: Response,
-  ): Promise<any> {
-    try {
-      const updated = await this.userService.updateProfile(id, body);
-      return res.status(200).json({
-        success: true,
-        message: 'User profile updated successfully',
-        data: updated,
-      });
-    } catch (error) {
-      const statusCode = error instanceof NotFoundError ? 404 : 500;
-      return res.status(statusCode).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  ) {
+    const updated = await this.userService.updateProfile(id, body);
+    return updated;
   }
 
   /**
@@ -185,43 +131,28 @@ export class UserController {
   @Get('/firebase/:firebaseUID/profile')
   @HttpCode(200)
   @ResponseSchema(UserProfileResponse)
-  async getProfileByFirebaseUID(
-    @Param('firebaseUID') firebaseUID: string,
-    @Res() res: Response,
-  ): Promise<any> {
-    try {
-      const user = await this.userService.findByFirebaseUID(firebaseUID);
-      return res.status(200).json({
-        success: true,
-        message: 'User profile retrieved successfully',
-        data: {
-          id: user._id?.toString() || '',
-          firebaseUID: user.firebaseUID,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          avatar: user.avatar || null,
-          role: user.role || null,
-          dateOfBirth: user.dateOfBirth || null,
-          address: user.address || null,
-          emergencyContact: user.emergencyContact || null,
-          phoneNumber: user.phoneNumber || null,
-          institution: user.institution || null,
-          designation: user.designation || null,
-          bio: user.bio || null,
-          isVerified: user.isVerified || false,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      });
-    } catch (error) {
-      const statusCode = error instanceof NotFoundError ? 404 : 500;
-      return res.status(statusCode).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
-    }
+  async getProfileByFirebaseUID(@Param('firebaseUID') firebaseUID: string) {
+    const user = await this.userService.findByFirebaseUID(firebaseUID);
+    if (!user) throw new NotFoundError('User not found');
+    return {
+      id: user._id?.toString() || '',
+      firebaseUID: user.firebaseUID,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar || null,
+      role: user.role || null,
+      dateOfBirth: user.dateOfBirth || null,
+      address: user.address || null,
+      emergencyContact: user.emergencyContact || null,
+      phoneNumber: user.phoneNumber || null,
+      institution: user.institution || null,
+      designation: user.designation || null,
+      bio: user.bio || null,
+      isVerified: user.isVerified || false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   /**
@@ -236,35 +167,21 @@ export class UserController {
   async updateRole(
     @Param('firebaseUID') firebaseUID: string,
     @Body() body: { role: string },
-    @Res() res: Response,
-  ): Promise<any> {
-    try {
-      const { role } = body;
-      if (!role || typeof role !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Role must be a non-empty string',
-          data: null,
-        });
-      }
+  ) {
+    const { role } = body;
+    if (!role || typeof role !== 'string') {
+      throw new BadRequestError('Role must be a non-empty string');
+    }
 
+    try {
       const updatedUser = await this.userService.updateRoleByFirebaseUID(firebaseUID, role);
-      return res.status(200).json({
-        success: true,
-        message: 'User role updated successfully',
-        data: {
-          id: updatedUser._id?.toString() || '',
-          firebaseUID: updatedUser.firebaseUID,
-          role: updatedUser.role,
-        },
-      });
-    } catch (error) {
-      const statusCode = error instanceof NotFoundError ? 404 : 500;
-      return res.status(statusCode).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal Server Error',
-        data: null,
-      });
+      return {
+        id: updatedUser._id?.toString() || '',
+        firebaseUID: updatedUser.firebaseUID,
+        role: updatedUser.role,
+      };
+    } catch (err: any) {
+      throw new BadRequestError(err.message);
     }
   }
 }
