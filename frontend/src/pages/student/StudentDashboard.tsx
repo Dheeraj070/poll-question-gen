@@ -61,35 +61,75 @@ export default function StudentDashboard() {
   const [dashboardData, setDashboardData] = useState<StudentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [localActiveRoom, setLocalActiveRoom] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Fetch dashboard data from backend
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    const activeRoomCode = localStorage.getItem("activeRoomCode");
+    const joinedRoom = localStorage.getItem("joinedRoom");
+    if (activeRoomCode && joinedRoom === "true") {
+      setLocalActiveRoom(activeRoomCode);
+    }
+  }, []);
 
-        // Replace with actual student ID from auth store
-        const studentId = user?.uid;
-        if (!studentId) {
-          throw new Error('No student ID found');
-        }
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const response = await api.get(`/students/dashboard/${studentId}`);
-        setDashboardData(response.data);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
+      const studentId = user?.uid;
+      if (!studentId) {
+        throw new Error('No student ID found');
       }
-    };
 
+      const response = await api.get(`/students/dashboard/${studentId}`);
+      setDashboardData(response.data);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user?.uid) {
       fetchDashboardData();
     }
-  }, [user]);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      if (user?.uid) {
+        const activeRoomCode = localStorage.getItem("activeRoomCode");
+        const joinedRoom = localStorage.getItem("joinedRoom");
+        if (activeRoomCode && joinedRoom === "true") {
+          api.get(`/livequizzes/rooms/${activeRoomCode}`)
+            .then((res) => {
+              if (res.data?.success && res.data.room?.status === 'active') {
+                setLocalActiveRoom(activeRoomCode);
+              } else {
+                localStorage.removeItem("activeRoomCode");
+                localStorage.removeItem("joinedRoom");
+                setLocalActiveRoom(null);
+              }
+            })
+            .catch(() => {
+              localStorage.removeItem("activeRoomCode");
+              localStorage.removeItem("joinedRoom");
+              setLocalActiveRoom(null);
+            });
+        } else {
+          setLocalActiveRoom(null);
+        }
+        
+        fetchDashboardData();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [user?.uid]);
 
   // Loading state
   if (loading) {
@@ -194,6 +234,7 @@ export default function StudentDashboard() {
                   onClick={() => {
                     navigate({ to: '/student/pollroom' });
                   }}
+                  data-tour="join-room-btn"
                 >
                   Join Poll Room
                 </Button>
@@ -208,7 +249,7 @@ export default function StudentDashboard() {
           </Card>
 
           {/* Poll Stats Summary */}
-          <Card className="flex flex-col justify-between p-4 sm:p-6 shadow-lg dark:shadow-2xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+          <Card className="flex flex-col justify-between p-4 sm:p-6 shadow-lg dark:shadow-2xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" data-tour="poll-stats">
             <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -240,7 +281,7 @@ export default function StudentDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 
           {/* Recent Polls (combined box) */}
-          <Card className="md:col-span-2 shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+          <Card className="md:col-span-2 shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" data-tour="active-polls">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-blue-700 dark:text-blue-400 flex items-center gap-2 text-sm sm:text-base">
                 <Trophy className="h-5 w-5" />
@@ -289,25 +330,53 @@ export default function StudentDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Show local active room from localStorage if it exists */}
+              {localActiveRoom && (
+                <div
+                  className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/40 border border-green-100 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-800 transition-colors cursor-pointer"
+                  onClick={() => navigate({ to: `/student/pollroom/${localActiveRoom}` })}
+                >
+                  <div>
+                    <div className="font-semibold text-green-800 dark:text-green-300 text-sm sm:text-base">Room {localActiveRoom}</div>
+                    <div className="text-xs text-green-600 dark:text-green-400">Click to rejoin</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-xs text-green-600 dark:text-green-400">Active</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show backend active rooms */}
               {roomWiseScores && roomWiseScores.filter(r => r.status === 'active').length > 0 ? (
                 roomWiseScores
                   .filter(r => r.status === 'active')
+                  .filter(r => r.roomCode !== localActiveRoom) // Avoid duplicates
                   .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .map((room, idx) => (
                     <div
                       key={`${room.roomCode}-${idx}`}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors cursor-pointer"
+                      onClick={() => navigate({ to: `/student/pollroom/${room.roomCode}` })}
                     >
                       <div className="font-semibold text-blue-800 dark:text-blue-300 text-sm sm:text-base truncate">{room.roomName}</div>
                       <div className="text-xs text-green-600 dark:text-green-400 flex-shrink-0">Active</div>
                     </div>
                   ))
-              ) : (
+              ) : !localActiveRoom ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <div className="w-2 h-2 rounded-full bg-gray-400 mx-auto mb-2"></div>
                   <p>No active rooms</p>
+                  <Button
+                    onClick={() => navigate({ to: '/student/pollroom' })}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                  >
+                    Join a Room
+                  </Button>
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
 
@@ -391,7 +460,7 @@ export default function StudentDashboard() {
           </Card>
 
           {/* Room-wise Results */}
-          <Card className="shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+          <Card className="shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" data-tour="room-scores">
             <CardHeader>
               <CardTitle className="text-blue-700 dark:text-blue-400 flex items-center gap-2 text-sm sm:text-base">
                 <BookOpen className="h-5 w-5" />
@@ -449,7 +518,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Performance Summary */}
-        <Card className="shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+        <Card className="shadow-md dark:shadow-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700" data-tour="performance-summary">
           <CardHeader>
             <CardTitle className="text-blue-800 dark:text-blue-200 font-bold flex items-center gap-2 text-sm sm:text-base">
               <Trophy className="h-5 w-5 text-blue-600 dark:text-blue-400" />

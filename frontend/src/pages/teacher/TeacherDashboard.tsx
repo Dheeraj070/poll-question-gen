@@ -150,11 +150,11 @@ export default function TeacherDashboard() {
   };*/
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+    <div className="w-full">
       {/* Dashboard Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0 mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">Educator Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">WELCOME BACK</h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             Overview of your teaching analytics and assessments
           </p>
@@ -164,13 +164,14 @@ export default function TeacherDashboard() {
           onClick={() => {
             navigate({ to: '/teacher/pollroom' });
           }}
+          data-tour="create-room-btn"
         >
           Create New Room
         </Button>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8" data-tour="stats-cards">
         {/* Welcome Card */}
         <Card className="lg:col-span-2 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
           <CardContent className="flex flex-col lg:flex-row items-center justify-between p-4 sm:p-6 lg:p-8">
@@ -230,7 +231,7 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Room Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8" data-tour="rooms-section">
         {/* Combined Rooms Section */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
@@ -326,7 +327,7 @@ export default function TeacherDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 sm:space-y-3">
-            <Button
+            {/* <Button
               variant="outline"
               className="w-full justify-start text-sm sm:text-base"
               onClick={() => {
@@ -334,7 +335,7 @@ export default function TeacherDashboard() {
               }}
             >
               Create New Room
-            </Button>
+            </Button> */}
             <Button
               variant="outline"
               className="w-full justify-start text-sm sm:text-base"
@@ -364,7 +365,7 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8" data-tour="analytics">
         {/* Participation Rate */}
         <Card>
           <CardHeader>
