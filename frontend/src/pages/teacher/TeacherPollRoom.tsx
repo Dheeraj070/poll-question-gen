@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft, UserPlus } from 'lucide-react';
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1783,6 +1783,12 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
                 >
                   <BarChart2 className="w-4 h-4 mr-2" />
                   Poll Results
+                </Button>
+                <Button
+                  variant="outline"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Invite Cohost
                 </Button>
               </div>
 
