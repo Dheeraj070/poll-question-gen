@@ -32,6 +32,7 @@ import TeacherPollAnalysis from '@/pages/teacher/TeacherPollAnalysis'
 import StudentPollAnalysis from '@/pages/student/StudentPollAnalysis'
 import MyPolls from '@/pages/student/MyPolls'
 import RoleSelectionPage from '@/pages/roleselect'
+import CohostInvite from '@/pages/teacher/cohostInvite'
 
 // Root route with error and notFound handling
 const rootRoute = createRootRoute({
@@ -208,6 +209,13 @@ const teacherPollAnalysisRoute = createRoute({
   component: TeacherPollAnalysis,
 });
 
+// Cohost invite route
+const cohostInviteRoute = createRoute({
+  getParentRoute: () => teacherLayoutRoute,
+  path: '/cohost-invite/$token',
+  component: CohostInvite,
+});
+
 // Teacher poll room route
 export const teacherPollRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -324,6 +332,7 @@ const routeTree = rootRoute.addChildren([
     teacherSettingsRoute,
     teacherManageRoomsRoute,
     teacherPollAnalysisRoute,
+    cohostInviteRoute,
   ]),
   studentLayoutRoute.addChildren([
     studentPollRoomRoute,
