@@ -90,7 +90,14 @@ type GeneratedQuestion = {
 };
 
 export default function TeacherPollRoom() {
-  const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
+const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
+
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
+  
+  const dummyCohosts = [
+    { firstName: "Amit (Host)", role: "host" },
+    { firstName: "Priya (Cohost)", role: "cohost" }
+  ];
 
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
@@ -1611,14 +1618,14 @@ export default function TeacherPollRoom() {
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar with student list */}
           
-          {!showResultsModal && !showPollModal && !showPreview && (
-
+{!showResultsModal && !showPollModal && !showPreview && (
             <div className={`${isSidebarCollapsed ? 'w-12' : 'w-54'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out`}>
-              {/* //  Sidebar header with title and toggle button */}
+              
+              {/* Sidebar header */}
               <div className={`h-16 border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'px-4'} flex-shrink-0`}>
                 {!isSidebarCollapsed && (
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex-1">
-                    Students
+                    Participants
                   </h2>
                 )}
                 <Button
@@ -1627,7 +1634,6 @@ export default function TeacherPollRoom() {
                   aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                   variant="ghost"
                   size="icon"
-
                 >
                   {isSidebarCollapsed ? (
                     <ChevronRight className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -1637,36 +1643,80 @@ export default function TeacherPollRoom() {
                 </Button>
               </div>
 
-              {/* // Student list content */}
+              {/* Capsule Toggle Button (Only show if not collapsed) */}
+              {!isSidebarCollapsed && (
+                <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex bg-[#9b51e0] dark:bg-purple-700 rounded-full p-1 text-sm font-semibold shadow-inner">
+                    <button
+                      onClick={() => setActiveSidebarTab('students')}
+                      className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${
+                        activeSidebarTab === 'students'
+                          ? 'bg-white text-[#9b51e0] shadow-sm'
+                          : 'text-white hover:bg-white/20'
+                      }`}
+                    >
+                      Students
+                    </button>
+                    <button
+                      onClick={() => setActiveSidebarTab('cohosts')}
+                      className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${
+                        activeSidebarTab === 'cohosts'
+                          ? 'bg-white text-[#9b51e0] shadow-sm'
+                          : 'text-white hover:bg-white/20'
+                      }`}
+                    >
+                      Cohosts
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                 <ScrollArea className="flex-1">
-                    <div className="p-2 space-y-2">
-                      {students.length > 0 ? (
-                        students.map((student: any, index: number) => {
-                          const studentName = student?.firstName;
-                          return (
-                            <div
-                              key={index}
-                              className="flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              <div className="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></div>
-                              {!isSidebarCollapsed && (
-                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                                  {studentName}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="p-2">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            No students connected yet
-                          </p>
+              {/* List content */}
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-2">
+                  {/* STUDENTS TAB */}
+                  {activeSidebarTab === 'students' && (
+                    students.length > 0 ? (
+                      students.map((student: any, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></div>
+                          {!isSidebarCollapsed && (
+                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                              {student?.firstName}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </ScrollArea>
+                      ))
+                    ) : (
+                      <div className="p-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                          {!isSidebarCollapsed ? "No students connected yet" : "..."}
+                        </p>
+                      </div>
+                    )
+                  )}
+
+                  {/* COHOSTS TAB */}
+                  {activeSidebarTab === 'cohosts' && (
+                    dummyCohosts.map((cohost, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border border-transparent hover:border-purple-200 dark:hover:border-purple-800"
+                      >
+                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${cohost.role === 'host' ? 'bg-amber-500' : 'bg-purple-500'}`}></div>
+                        {!isSidebarCollapsed && (
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                            {cohost.firstName}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
               
             </div>
           )}
