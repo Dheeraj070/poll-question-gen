@@ -94,9 +94,10 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
   
+// Dummy Cohost Data (Temporary) - Removed Host
   const dummyCohosts = [
-    { firstName: "Amit (Host)", role: "host" },
-    { firstName: "Priya (Cohost)", role: "cohost" }
+    { id: "1", firstName: "Priya", role: "cohost" },
+    { id: "2", firstName: "Rahul", role: "cohost" }
   ];
 
   const params = useParams({ from: '/teacher/pollroom/$code' });
@@ -1700,20 +1701,46 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
                   )}
 
                   {/* COHOSTS TAB */}
+{/* COHOSTS TAB */}
                   {activeSidebarTab === 'cohosts' && (
-                    dummyCohosts.map((cohost, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border border-transparent hover:border-purple-200 dark:hover:border-purple-800"
-                      >
-                        <div className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${cohost.role === 'host' ? 'bg-amber-500' : 'bg-purple-500'}`}></div>
-                        {!isSidebarCollapsed && (
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                            {cohost.firstName}
-                          </span>
-                        )}
+                    dummyCohosts.length > 0 ? (
+                      dummyCohosts.map((cohost, index) => (
+                        <div
+                          key={index}
+                          className="group flex items-center justify-between p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border border-transparent hover:border-purple-200 dark:hover:border-purple-800"
+                        >
+                          <div className="flex items-center overflow-hidden">
+                            {/* Purple round dot */}
+                            <div className="w-2 h-2 rounded-full bg-purple-500 mr-2 flex-shrink-0"></div>
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                                {cohost.firstName}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Cross Button (Visible only on hover) */}
+                          {!isSidebarCollapsed && (
+                            <button
+                              onClick={() => {
+                                // TODO: Add Socket.io emit to remove co-host later
+                                console.log('Remove cohost clicked for:', cohost.firstName);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
+                              title="Remove Co-host"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                          {!isSidebarCollapsed ? "No co-hosts joined yet" : "..."}
+                        </p>
                       </div>
-                    ))
+                    )
                   )}
                 </div>
               </ScrollArea>
