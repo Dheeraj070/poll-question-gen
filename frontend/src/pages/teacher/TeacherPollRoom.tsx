@@ -3137,7 +3137,7 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
                           Poll options (choose correct/right option)
                         </legend>
 
-                        {getFilteredOptions(options).map((opt, i) => (
+                        {options.map((opt, i) => (
                           <div key={i} className="flex items-center gap-3">
                             <input
                               type="radio"
