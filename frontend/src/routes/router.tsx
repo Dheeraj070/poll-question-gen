@@ -32,7 +32,7 @@ import TeacherPollAnalysis from '@/pages/teacher/TeacherPollAnalysis'
 import StudentPollAnalysis from '@/pages/student/StudentPollAnalysis'
 import MyPolls from '@/pages/student/MyPolls'
 import RoleSelectionPage from '@/pages/roleselect'
-import CohostInvite from '@/pages/teacher/cohostInvite'
+import CohostInvite from '@/pages/teacher/CohostInvite'
 
 // Root route with error and notFound handling
 const rootRoute = createRootRoute({
