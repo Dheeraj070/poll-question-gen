@@ -8,6 +8,7 @@ import {
   User,
   LogOut,
   ChevronRight,
+  UserCheck
 } from "lucide-react"
 import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 import { useAuthStore } from "@/lib/store/auth-store"
@@ -48,6 +49,11 @@ const teacherNavData = [
     title: "Manage Rooms",
     url: "/teacher/manage-rooms",
     icon: Users,
+  },
+  {
+    title: "Co-hosted Rooms",
+    url: "/teacher/cohosted-rooms",
+    icon: UserCheck,
   },
 ]
 
