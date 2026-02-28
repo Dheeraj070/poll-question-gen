@@ -107,11 +107,10 @@ const [inviteLink,setInviteLink] = useState('')
   // Real Cohosts State
   const [cohosts, setCohosts] = useState<any[]>([]);
 
-  // 1. Fetch Cohosts API (Afnan ka GET endpoint)
+  // 1. Fetch Cohosts API 
   const fetchCohosts = useCallback(async () => {
     try {
       if (!currentUser?.uid || !roomCode) return;
-      // Note: Afnan ne /cohost/ banaya hai. Agar base URL '/livequizzes' hai toh yeh chalega.
       const res = await api.get(`/livequizzes/rooms/cohost/${currentUser.uid}/${roomCode}`);
       setCohosts(res.data.activeCohosts || []);
     } catch (error) {
@@ -119,12 +118,11 @@ const [inviteLink,setInviteLink] = useState('')
     }
   }, [currentUser?.uid, roomCode]);
 
-  // Jab page load ho tab API call karo
   useEffect(() => {
     fetchCohosts();
   }, [fetchCohosts]);
 
-  // 2. Remove Cohost API (Afnan ka PATCH endpoint)
+  // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
     if (!window.confirm("Are you sure you want to remove this co-host?")) return;
     try {
@@ -139,7 +137,7 @@ const [inviteLink,setInviteLink] = useState('')
     }
   };
 
-  // Room creator ki ID store karne ke liye
+  // Store the room creator's ID for role-based access
   const [hostId, setHostId] = useState<string | null>(null);
   const isHost = currentUser?.uid === hostId;
 
@@ -417,7 +415,7 @@ const [inviteLink,setInviteLink] = useState('')
               // console.log('Room updated:', updatedRoom);
               setStudents(updatedRoom.students || []);
               
-              // Host ID save karo conditional rendering ke liye
+              // Save Host ID for conditional UI rendering
               if (updatedRoom.teacherId) {
                 setHostId(updatedRoom.teacherId);
               }
@@ -1796,7 +1794,6 @@ const [inviteLink,setInviteLink] = useState('')
                             <div className="w-2 h-2 rounded-full bg-purple-500 mr-2 flex-shrink-0"></div>
                             {!isSidebarCollapsed && (
                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                                {/* Backend se aane wale property ka naam (name ya firstName) */}
                                 {cohost.firstName || cohost.name || "Cohost"} 
                               </span>
                             )}
@@ -1805,7 +1802,7 @@ const [inviteLink,setInviteLink] = useState('')
                           {/* Cross Button (Visible only to Host on hover) */}
                           {isHost && !isSidebarCollapsed && (
                             <button
-                              // Backend id ko bhej rahe hain
+                              // Pass the correct ID format to the removal handler
                               onClick={() => handleRemoveCohost(cohost.userId || cohost.id || cohost._id)}
                               className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
                               title="Remove Co-host"
@@ -1911,7 +1908,6 @@ const [inviteLink,setInviteLink] = useState('')
                   <span className="hidden xs:inline">Copy Code</span>
                 </Button>
                 
-                {/* 🔒 SIRF HOST KO DIKHENGE YEH BUTTONS */}
                 {isHost && (
                   <>
                     {inviteLink ? (
