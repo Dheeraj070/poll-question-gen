@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
-import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload } from '../interfaces/PollRoom.js';
+import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
 import {ObjectId} from 'mongodb'
 import { HttpError, NotFoundError } from 'routing-controllers';
@@ -312,5 +312,54 @@ export class RoomService {
 
     return{ message: "Joined as cohost", roomId: room.roomCode }
 
+  }
+
+  //get cohost rooms
+    async getCohostedRooms(userId: string): Promise<GetCohostRoom> {
+
+     const rooms = await Room.aggregate([
+  {
+    $match: {
+      status: "active",
+      coHosts: {
+        $elemMatch: {
+          userId: userId,
+          isActive: true
+        }
+      }
+    }
+  },
+  {
+    $lookup: {
+      from: "users",
+      let: { teacherId: "$teacherId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$firebaseUID", "$$teacherId"] }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            firstName: 1,
+            lastName: 1
+          }
+        }
+      ],
+      as: "teacher"
+    }
+  },
+  {
+    $unwind: {
+      path: "$teacher",
+      preserveNullAndEmptyArrays: true
+    }
+  },
+  {
+    $sort: { createdAt: -1 }
+  }
+]);
+    return {count:rooms.length,rooms}
   }
 }

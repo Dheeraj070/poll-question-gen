@@ -32,3 +32,8 @@ export interface CohostJwtPayload extends JwtPayload {
   jti: string;
 }
 
+export interface GetCohostRoom {
+  rooms: Room[];
+  count: number;
+}
+

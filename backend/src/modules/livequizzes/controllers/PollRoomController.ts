@@ -276,6 +276,13 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
     return { success: true, inviteLink: resp };
   }
 
+  //get cohosted rooms
+  @Get('/cohost/:userId')
+  async getCohostRooms(@Param('userId') userId: string) {
+    const resp= await this.roomService.getCohostedRooms(userId);
+    return {success:true,...resp}
+  }
+
   
   
 }

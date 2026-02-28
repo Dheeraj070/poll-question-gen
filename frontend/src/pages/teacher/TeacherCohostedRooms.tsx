@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
-// import api from "@/lib/api/api"; // Temporarily commented out API
+import api from "@/lib/api/api"; // Temporarily commented out API
 
 interface Room {
     roomCode: string;
@@ -42,36 +42,36 @@ export default function TeacherCohostedRooms() {
                 
                 // --- DUMMY DATA FOR UI TESTING ---
                 // TODO: Replace this with actual API call when backend is ready
-                // const response = await api.get(`/livequizzes/rooms/cohost/${user.uid}`);
+                const response = await api.get(`/livequizzes/rooms/cohost/${user.uid}`);
                 
-                setTimeout(() => {
-                    const dummyData: Room[] = [
-                        {
-                            roomCode: "MATH101",
-                            name: "Advanced Calculus (Co-hosted)",
-                            createdAt: new Date().toISOString(),
-                            status: 'active',
-                            teacherId: "other-teacher-1",
-                            polls: [
-                                { _id: "p1", question: "Q1", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u2", answerIndex: 1}] },
-                                { _id: "p2", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] }
-                            ]
-                        },
-                        {
-                            roomCode: "PHY202",
-                            name: "Quantum Physics Quiz (Co-hosted)",
-                            createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-                            status: 'ended',
-                            teacherId: "other-teacher-2",
-                            polls: [
-                                { _id: "p3", question: "Q1", options: ["A", "B", "C"], correctOptionIndex: 1, answers: [{userId: "u1", answerIndex: 1}, {userId: "u2", answerIndex: 1}, {userId: "u3", answerIndex: 0}] },
-                                { _id: "p4", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] },
-                                { _id: "p5", question: "Q3", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u3", answerIndex: 0}] }
-                            ]
-                        }
-                    ];
+                // setTimeout(() => {
+                    // const dummyData: Room[] = [
+                    //     {
+                    //         roomCode: "MATH101",
+                    //         name: "Advanced Calculus (Co-hosted)",
+                    //         createdAt: new Date().toISOString(),
+                    //         status: 'active',
+                    //         teacherId: "other-teacher-1",
+                    //         polls: [
+                    //             { _id: "p1", question: "Q1", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u2", answerIndex: 1}] },
+                    //             { _id: "p2", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] }
+                    //         ]
+                    //     },
+                    //     {
+                    //         roomCode: "PHY202",
+                    //         name: "Quantum Physics Quiz (Co-hosted)",
+                    //         createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+                    //         status: 'ended',
+                    //         teacherId: "other-teacher-2",
+                    //         polls: [
+                    //             { _id: "p3", question: "Q1", options: ["A", "B", "C"], correctOptionIndex: 1, answers: [{userId: "u1", answerIndex: 1}, {userId: "u2", answerIndex: 1}, {userId: "u3", answerIndex: 0}] },
+                    //             { _id: "p4", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] },
+                    //             { _id: "p5", question: "Q3", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u3", answerIndex: 0}] }
+                    //         ]
+                    //     }
+                    // ];
                     
-                    const sortedRooms = dummyData.sort((a: Room, b: Room) => {
+                    const sortedRooms = response.data.rooms.sort((a: Room, b: Room) => {
                         if (a.status === 'active' && b.status === 'ended') return -1;
                         if (a.status === 'ended' && b.status === 'active') return 1;
                         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -79,7 +79,7 @@ export default function TeacherCohostedRooms() {
 
                     setRooms(sortedRooms);
                     setLoading(false);
-                }, 1000); // 1 second fake delay to show loading spinner
+                // }, 1000); // 1 second fake delay to show loading spinner
 
             } catch (err) {
                 console.error('Error fetching rooms:', err);
