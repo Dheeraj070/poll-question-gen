@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
-import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom } from '../interfaces/PollRoom.js';
+import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom, ActiveCohost } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
 import {ObjectId} from 'mongodb'
 import { HttpError, NotFoundError } from 'routing-controllers';
@@ -361,5 +361,83 @@ export class RoomService {
   }
 ]);
     return {count:rooms.length,rooms}
+  }
+
+  //get room cohost
+    async getRoomCohosts(host: string,roomCode:string): Promise<ActiveCohost[]> {
+      
+    const coHosts = await Room.aggregate<ActiveCohost>([
+  {
+    $match: {
+      roomCode: roomCode,
+      teacherId: host,
+    }
+  },
+  {
+    $unwind: "$coHosts"
+  },
+  {
+    $match: {
+      "coHosts.isActive": true
+    }
+  },
+  {
+    $lookup: {
+      from: "users",
+      let: { uid: "$coHosts.userId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$firebaseUID", "$$uid"] }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            firebaseUID: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1
+          }
+        }
+      ],
+      as: "cohostUser"
+    }
+  },
+  {
+    $unwind: "$cohostUser"
+  },
+  {
+    $project: {
+      _id: 0,
+      userId: "$cohostUser.firebaseUID",
+      firstName: "$cohostUser.firstName",
+      lastName: "$cohostUser.lastName",
+      email: "$cohostUser.email",
+      addedAt: "$coHosts.addedAt"
+    }
+  }
+]);
+console.log('cohost:',coHosts)
+    return coHosts
+  }
+
+  //remove cohost
+    async removeCohost(roomCode:string,userId: string,teacherId:string): Promise<{message:string}> {
+
+     const room = await Room.findOne({roomCode});
+     if(!room){
+      throw new NotFoundError("Room is not found")
+    }
+    if(room.teacherId !== teacherId){
+      throw new HttpError(400,"Invalid room")
+    }
+    room.coHosts.forEach(c => {
+      if (c.userId === userId) {
+        c.isActive = false;
+      }
+    });
+    await room.save();
+    return {message:'coHost removed successfully'}
   }
 }
