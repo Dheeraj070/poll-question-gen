@@ -167,6 +167,24 @@ export default function StudentPollRoom() {
     }
   }, [answeredPolls, roomCode]);
 
+  useEffect(() => {
+
+  socket.on("removed-from-room", (roomCode) => {
+
+    toast.error("You were removed by the teacher");
+
+    cleanupRoom();
+
+    navigate({ to: "/student/home" });
+
+  });
+
+  return () => {
+    socket.off("removed-from-room");
+  };
+
+}, []);
+
   const loadRoomDetails = async (code: string) => {
     try {
       const res = await api.get(`/livequizzes/rooms/${code}`);
@@ -195,17 +213,22 @@ export default function StudentPollRoom() {
       toast.error("Failed to submit vote");
     }
   };
+  const cleanupRoom = () => {
 
+  setJoinedRoom(false);
+  setLivePolls([]);
+  setAnsweredPolls({});
+  setRoomDetails(null);
+  setAllRoomPolls([]);
+  setActiveMenu(null);
+
+  localStorage.removeItem("activeRoomCode");
+  localStorage.removeItem("joinedRoom");
+
+};
   const exitRoom = () => {
     socket.emit("leave-room", roomCode, email);
-    setJoinedRoom(false);
-    setLivePolls([]);
-    setAnsweredPolls({});
-    setRoomDetails(null);
-    setAllRoomPolls([]);
-    localStorage.removeItem("activeRoomCode");
-    localStorage.removeItem("joinedRoom");
-    setActiveMenu(null);
+    cleanupRoom()
     toast.info("Left the room.");
     navigate({ to: `/student/pollroom` });
   };
