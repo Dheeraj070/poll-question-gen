@@ -24,6 +24,7 @@ import StudentPollRoom from '@/pages/student/StudentPollRoom'
 import TeacherDashboard from '@/pages/teacher/TeacherDashboard'
 import StudentDashboard from '@/pages/student/StudentDashboard'
 import StudentProfile from '@/pages/student/StudentProfile'
+import TeacherCohostedRooms from '@/pages/teacher/TeacherCohostedRooms'
 import TeacherProfile from '@/pages/teacher/TeacherProfile'
 import TeacherSettings from '@/pages/teacher/TeacherSettings'
 import StudentSettings from '@/pages/student/StudentSettings'
@@ -202,6 +203,13 @@ const teacherManageRoomsRoute = createRoute({
   component: ManageRoom,
 }); 
 
+// Teacher cohosted rooms route
+const teacherCohostedRoomsRoute = createRoute({
+  getParentRoute: () => teacherLayoutRoute,
+  path: '/cohosted-rooms',
+  component: TeacherCohostedRooms,
+});
+
 // Teacher poll analysis route
 const teacherPollAnalysisRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
@@ -331,6 +339,7 @@ const routeTree = rootRoute.addChildren([
     teacherProfileRoute,
     teacherSettingsRoute,
     teacherManageRoomsRoute,
+    teacherCohostedRoomsRoute,
     teacherPollAnalysisRoute,
     cohostInviteRoute,
   ]),
