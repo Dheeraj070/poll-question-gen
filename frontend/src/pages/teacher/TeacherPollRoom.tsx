@@ -395,6 +395,7 @@ const [inviteLink,setInviteLink] = useState('')
       socket.off('poll-results-updated');
       socket.off('cohost-joined');
       socket.off('cohost-removed');
+      socket.off('room-ended');
 
       // Set up new listeners
       socket.on('live-poll-results', handlePollUpdate);
@@ -403,14 +404,25 @@ const [inviteLink,setInviteLink] = useState('')
       });
 
       socket.on('cohost-joined', (data) => {
-        console.log('joined:', data);
         setCohosts(data.activeCohosts || []);
         toast.success('A co-host has joined the room');
       });
       socket.on('cohost-removed', (data) => {
-        console.log('rm cohost:', data);
         setCohosts(data.activeCohosts || []);
+         if (currentUser?.uid === data.removedUserId) {
+              toast.error('You have been removed as co-host');
+              navigate({ to: '/teacher/cohosted-rooms' });
+              return;
+            }
         toast.info('A co-host was removed from the room');
+      });
+
+      socket.on('room-ended', (data) => {
+         setShowEndRoomConfirm(false);
+         setIsEndingRoom(false);
+         toast.info(data.message??'Room has ended');
+         if(!isHost)navigate({ to: '/teacher/cohosted-rooms' });
+        
       });
 
       socket.on('room-updated', (updatedRoom) => {
@@ -462,6 +474,7 @@ const [inviteLink,setInviteLink] = useState('')
       socket.emit('leave-room', roomCode, null);
       socket.off('cohost-joined');
       socket.off('cohost-removed');
+      socket.off('room-ended');
     };
   }, [roomCode]);
 

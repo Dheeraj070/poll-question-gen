@@ -159,6 +159,9 @@ export class RoomService {
 
   async endRoom(code: string): Promise<boolean> {
     const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
+    pollSocket?.emitToRoom( code,'room-ended', {
+      message:'Room has ended'
+    });
     return !!updated;
   }
 
