@@ -1556,7 +1556,16 @@ export default function TeacherPollRoom() {
       });
     }, 1000);
   };
+  const handleRemoveStudent = (studentEmail: string) => {
 
+    if (!studentEmail) return;
+
+    socket.emit("remove-student", {
+      roomCode,
+      email: studentEmail,
+    });
+
+  };
   const handleLaunchPoll = async () => {
     const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
@@ -1610,7 +1619,6 @@ export default function TeacherPollRoom() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar with student list */}
-          
           {!showResultsModal && !showPollModal && !showPreview && (
 
             <div className={`${isSidebarCollapsed ? 'w-12' : 'w-54'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out`}>
@@ -1637,37 +1645,68 @@ export default function TeacherPollRoom() {
                 </Button>
               </div>
 
-              {/* // Student list content */}
 
-                 <ScrollArea className="flex-1">
-                    <div className="p-2 space-y-2">
-                      {students.length > 0 ? (
-                        students.map((student: any, index: number) => {
-                          const studentName = student?.firstName;
-                          return (
-                            <div
-                              key={index}
-                              className="flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              <div className="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></div>
-                              {!isSidebarCollapsed && (
-                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                                  {studentName}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="p-2">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            No students connected yet
-                          </p>
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-2">
+                  {students.length > 0 ? (
+                    students.map((student: any, index: number) => {
+                      const studentName = student?.firstName;
+                      return (
+                        <div
+                          key={index}
+                          className="
+              group flex items-center justify-between
+              w-full
+              p-2 rounded-lg
+              hover:bg-gray-100 dark:hover:bg-gray-700
+              transition-colors
+            "
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+
+                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                {studentName}
+                              </span>
+                            )}
+
+                          </div>
+                          {!isSidebarCollapsed && (
+                            <Trash2
+                              size={18}
+                              className="
+                  text-red-500
+                  cursor-pointer
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-all duration-200
+                  hover:text-red-700 hover:scale-110
+                  flex-shrink-0
+                "
+                              onClick={() => handleRemoveStudent(student.email)}
+                            />
+                          )}
+
                         </div>
-                      )}
+
+                      );
+
+                    })
+
+                  ) : (
+
+                    <div className="p-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No students connected yet
+                      </p>
                     </div>
-                  </ScrollArea>
-              
+
+                  )}
+                </div>
+              </ScrollArea>
+
             </div>
           )}
 
@@ -2040,8 +2079,8 @@ export default function TeacherPollRoom() {
                                     disabled={isRecording || isListening || showAudioOptions}
                                   >
                                     <SelectTrigger className="w-[100px] sm:w-[140px] md:w-[170px] h-9 border border-gray-300 dark:border-gray-700 rounded-md hover:border-purple-500 focus:border-purple-500 transition-colors flex items-center gap-2">
-                                <Languages className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                <span className="hidden md:block text-sm text-gray-700 dark:text-gray-200 overflow-hidden">
+                                      <Languages className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                      <span className="hidden md:block text-sm text-gray-700 dark:text-gray-200 overflow-hidden">
                                         <SelectValue placeholder="Language" />
                                       </span>
                                     </SelectTrigger>
@@ -2144,18 +2183,18 @@ export default function TeacherPollRoom() {
 
                             <CardContent className="space-y-6">
 
-                        <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
-                          <Button
-                            onClick={() => handleRecordingToggle()}
-                            size="lg"
-                            variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
-                            className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
+                              <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
+                                <Button
+                                  onClick={() => handleRecordingToggle()}
+                                  size="lg"
+                                  variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
+                                  className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
                               bg-gradient-to-r from-purple-500 to-blue-500 text-white 
                               hover:from-purple-600 hover:to-blue-600 shadow-lg 
                               ${(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) && "animate-pulse"} transition-all`}
-                          >
-                            {(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-                          </Button>
+                                >
+                                  {(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                                </Button>
 
                                 <div className="flex items-end gap-1 h-8 mt-8">
                                   {isRecording && isListening && !useWhisper && !useWhisperGGML ? (
@@ -2487,11 +2526,11 @@ export default function TeacherPollRoom() {
                           </div>
                         )}
                         */}
-                        <Transcript
-                          transcribedData={undefined}
-                          liveTranscription={(useWhisper || useWhisperGGML) ? ('') : displayTranscript}
-                          isRecording={(useWhisper || useWhisperGGML) ? isLiveRecordingActive : (isRecording || isListening)}
-                        />
+                              <Transcript
+                                transcribedData={undefined}
+                                liveTranscription={(useWhisper || useWhisperGGML) ? ('') : displayTranscript}
+                                isRecording={(useWhisper || useWhisperGGML) ? isLiveRecordingActive : (isRecording || isListening)}
+                              />
 
                               <div>
                                 <Button
@@ -2911,20 +2950,20 @@ export default function TeacherPollRoom() {
                   </ScrollArea>
                 </div>
 
-          {/* Loading Overlay */}
-          {isProcessing && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Processing Your Questions</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
-                    Please wait while we process your questions. This may take a moment...
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+                {/* Loading Overlay */}
+                {isProcessing && (
+                  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Processing Your Questions</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
+                          Please wait while we process your questions. This may take a moment...
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Create Poll  */}
                 {showPollModal && (
@@ -3265,166 +3304,166 @@ export default function TeacherPollRoom() {
                                                     </div>
                                                   </div>
 
-                                            {isShowingNames && data.users.length > 0 ? (
-                                              <div className="ml-4 pl-2 border-l-2 border-purple-200 dark:border-purple-700">
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                  {data.users.map((user: any, userIndex: number) => (
-                                                    <span
-                                                      key={userIndex}
-                                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
-                                                    >
-                                                      <Users size={10} className="mr-1" />
-                                                      {user.name}
-                                                    </span>
-                                                  ))}
+                                                  {isShowingNames && data.users.length > 0 ? (
+                                                    <div className="ml-4 pl-2 border-l-2 border-purple-200 dark:border-purple-700">
+                                                      <div className="flex flex-wrap gap-1 mt-1">
+                                                        {data.users.map((user: any, userIndex: number) => (
+                                                          <span
+                                                            key={userIndex}
+                                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+                                                          >
+                                                            <Users size={10} className="mr-1" />
+                                                            {user.name}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  ) : data.users.length > 0 ? (
+                                                    <div className="ml-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                      <Users size={12} />
+                                                      <span>{data.users.length} member{data.users.length !== 1 ? "s" : ""}</span>
+                                                    </div>
+                                                  ) : null}
                                                 </div>
-                                              </div>
-                                            ) : data.users.length > 0 ? (
-                                              <div className="ml-4 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                                <Users size={12} />
-                                                <span>{data.users.length} member{data.users.length !== 1 ? "s" : ""}</span>
-                                              </div>
-                                            ) : null}
+                                              );
+                                            })}
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </ScrollArea>
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          </ScrollArea>
+                        )}
+                      </CardContent>
+                    </Card>
                   )}
-                </CardContent>
-              </Card>
-            )}
-        </div>
+              </div>
 
 
-        {/* <ShowStudentsModal
+              {/* <ShowStudentsModal
         isOpen={showStudentsModal}
         onClose={() => setShowStudentsModal(false)}
         students={students}
       /> */}
 
 
-        <Modal
-          show={showRecordModal}
-          title={"Record with Whisper AI"}
-          content={
-            <>
-              <p className="mb-4">Record audio using your microphone with Whisper AI transcription</p>
-              <AudioRecorder
-                onRecordingComplete={handleAudioFromRecording}
-                onAudioStream={handleLiveAudioStream}
-                enableLiveTranscription={true}
+              <Modal
+                show={showRecordModal}
+                title={"Record with Whisper AI"}
+                content={
+                  <>
+                    <p className="mb-4">Record audio using your microphone with Whisper AI transcription</p>
+                    <AudioRecorder
+                      onRecordingComplete={handleAudioFromRecording}
+                      onAudioStream={handleLiveAudioStream}
+                      enableLiveTranscription={true}
+                    />
+                    {whisperAiText?.length >= 1 && (
+                      <textarea
+                        className="w-full mt-3 p-2 text-sm border rounded-md bg-gray-50 mb-5"
+                        rows={4}
+                        readOnly
+                        value={whisperAiText}
+                      />
+                    )}
+                    {audioBlob && isTranscriptionComplete && (
+                      <div className="mt-4 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                        <p className="text-green-800 dark:text-green-400 text-sm flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Recording complete! Click "Load" to process with Whisper AI
+                        </p>
+                      </div>
+                    )}
+                    {!isTranscriptionComplete && audioBlob && (
+                      <div className="mt-4 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-blue-800 dark:text-blue-400 text-sm flex items-center">
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Finalizing transcription...
+                        </p>
+                      </div>
+                    )}
+                  </>
+                }
+                onClose={() => {
+                  setShowRecordModal(false);
+                  setAudioBlob(undefined);
+                  setIsLiveRecordingActive(false);
+                  setShouldProcessTranscript(false);
+                  setIsTranscriptionComplete(false);
+                }}
+                submitText={"Load"}
+                submitEnabled={
+                  isTranscriptionComplete
+
+                }
+
+                onSubmit={() => {
+                  processAudioBlob();
+                  setAudioBlob(undefined);
+                  setIsLiveRecordingActive(false);
+                  setShouldProcessTranscript(true);
+                  setIsTranscriptionComplete(false);
+
+                }}
               />
-              {whisperAiText?.length >= 1 && (
-                <textarea
-                  className="w-full mt-3 p-2 text-sm border rounded-md bg-gray-50 mb-5"
-                  rows={4}
-                  readOnly
-                  value={whisperAiText}
-                />
-              )}
-              {audioBlob && isTranscriptionComplete && (
-                <div className="mt-4 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                  <p className="text-green-800 dark:text-green-400 text-sm flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Recording complete! Click "Load" to process with Whisper AI
-                  </p>
-                </div>
-              )}
-              {!isTranscriptionComplete && audioBlob && (
-                <div className="mt-4 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                  <p className="text-blue-800 dark:text-blue-400 text-sm flex items-center">
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Finalizing transcription...
-                  </p>
-                </div>
-              )}
-            </>
-          }
-          onClose={() => {
-            setShowRecordModal(false);
-            setAudioBlob(undefined);
-            setIsLiveRecordingActive(false);
-            setShouldProcessTranscript(false);
-            setIsTranscriptionComplete(false);
-          }}
-          submitText={"Load"}
-          submitEnabled={
-            isTranscriptionComplete
+              <Modal
+                show={showExternalModal}
+                title={"Record with External API"}
+                content={
+                  <>
+                    <p className="mb-4">Record audio using your microphone with External API transcription</p>
+                    <AudioRecorder
+                      onRecordingComplete={handleAudioFromRecording}
+                      onAudioStream={handleLiveAudioStreamForExternalAPI}
+                      enableLiveTranscription={true}
+                      transcribeModel="external-api"
+                    />
+                    {transcribedTextFromExternal.length >= 1 && (
+                      <textarea
+                        className="w-full mt-3 p-2 text-sm border rounded-md bg-gray-50 mb-5"
+                        rows={4}
+                        readOnly
+                        value={transcribedTextFromExternal}
+                      />
+                    )}
 
-          }
+                    {audioBlob && (
+                      <div className="mt-4 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                        <p className="text-green-800 dark:text-green-400 text-sm flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Recording complete! Click "Load" to process with Whisper AI
+                        </p>
+                      </div>
+                    )}
 
-          onSubmit={() => {
-            processAudioBlob();
-            setAudioBlob(undefined);
-            setIsLiveRecordingActive(false);
-            setShouldProcessTranscript(true);
-            setIsTranscriptionComplete(false);
+                  </>
+                }
+                onClose={() => {
+                  setShowExternalModal(false);
+                  setAudioBlob(undefined);
+                  setIsLiveRecordingActive(false);
+                  setShouldProcessTranscript(false);
 
-          }}
-        />
-        <Modal
-          show={showExternalModal}
-          title={"Record with External API"}
-          content={
-            <>
-              <p className="mb-4">Record audio using your microphone with External API transcription</p>
-              <AudioRecorder
-                onRecordingComplete={handleAudioFromRecording}
-                onAudioStream={handleLiveAudioStreamForExternalAPI}
-                enableLiveTranscription={true}
-                transcribeModel="external-api"
+                }}
+                submitText={"Load"}
+                submitEnabled={audioBlob !== undefined}
+                onSubmit={() => {
+                  processAudioBlobForExternalAPi();
+                  setAudioBlob(undefined);
+                  setIsLiveRecordingActive(false);
+                  setShouldProcessTranscript(true);
+                  setShowExternalModal(false);
+
+
+                }}
               />
-              {transcribedTextFromExternal.length >= 1 && (
-                <textarea
-                  className="w-full mt-3 p-2 text-sm border rounded-md bg-gray-50 mb-5"
-                  rows={4}
-                  readOnly
-                  value={transcribedTextFromExternal}
-                />
-              )}
-
-              {audioBlob && (
-                <div className="mt-4 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                  <p className="text-green-800 dark:text-green-400 text-sm flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Recording complete! Click "Load" to process with Whisper AI
-                  </p>
-                </div>
-              )}
-
-            </>
-          }
-          onClose={() => {
-            setShowExternalModal(false);
-            setAudioBlob(undefined);
-            setIsLiveRecordingActive(false);
-            setShouldProcessTranscript(false);
-
-          }}
-          submitText={"Load"}
-          submitEnabled={audioBlob !== undefined}
-          onSubmit={() => {
-            processAudioBlobForExternalAPi();
-            setAudioBlob(undefined);
-            setIsLiveRecordingActive(false);
-            setShouldProcessTranscript(true);
-            setShowExternalModal(false);
-
-
-          }}
-        />
-        {/*  <Modal
+              {/*  <Modal
           show={showGGMLRecordModel}
           title={"Record with Whisper GGML"}
           content={
@@ -3490,9 +3529,9 @@ export default function TeacherPollRoom() {
            
           }}
         />*/}
-      </div>
-      </div>
-      </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

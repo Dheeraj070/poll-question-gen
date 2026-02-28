@@ -38,6 +38,7 @@ class PollSocket {
           }
           if (isActive) {
             socket.join(roomCode);
+            socket.data.email =email
             if (!this.activeConnections.has(socket.id)) {
               this.activeConnections.set(socket.id, []);
             }
@@ -77,6 +78,56 @@ class PollSocket {
         console.log(`Socket ${socket.id} left room: ${roomCode}`);
       });
 
+      socket.on("remove-student", async ({ roomCode, email }) => {
+
+        try {
+          const user = await this.userRepo.findByEmail(email);
+
+          if (!user) return;
+
+          const userId = user._id.toString();
+
+          await this.roomService.unEnrollStudent(userId, roomCode);
+
+          let studentSocketId: string | null = null;
+
+          for (const [socketId, rooms] of this.activeConnections.entries()) {
+
+            if (rooms.includes(roomCode)) {
+
+              const s = this.io.sockets.sockets.get(socketId);
+
+              if (s?.data?.email === email) {
+                studentSocketId = socketId;
+                break;
+              }
+
+            }
+
+          }
+
+          if (studentSocketId) {
+
+            const studentSocket = this.io.sockets.sockets.get(studentSocketId);
+
+            studentSocket.leave(roomCode);
+
+            studentSocket.emit("removed-from-room", roomCode);
+
+            this.activeConnections.delete(studentSocketId);
+
+          }
+          const updatedRoom = await this.roomService.getRoomByCode(roomCode);
+
+          this.io.to(roomCode).emit("room-updated", updatedRoom);
+
+        }
+        catch (err) {
+          console.error("remove student error", err);
+        }
+
+      });
+
       socket.on('disconnect', () => {
         this.activeConnections.delete(socket.id);
         console.log(`Socket ${socket.id} disconnected. Active connections: ${this.activeConnections.size}`);
@@ -102,5 +153,4 @@ class PollSocket {
 }
 const userService = getFromContainer(UserService)
 export const pollSocket = new PollSocket(new RoomService(), new UserRepository()
-  // userService
 );
