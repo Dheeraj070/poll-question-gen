@@ -6,6 +6,7 @@ import {ObjectId} from 'mongodb'
 import { HttpError, NotFoundError } from 'routing-controllers';
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
+import { pollSocket } from '../utils/PollSocket.js';
 
 @injectable()
 export class RoomService {
@@ -310,6 +311,12 @@ export class RoomService {
 
     await room.save();
 
+  // Get updated cohost list with full details
+  const activeCohosts = await this.getRoomCohosts(room.teacherId, decoded.roomId);
+  pollSocket?.emitToRoom(decoded.roomId, 'cohost-joined', {
+    activeCohosts: activeCohosts
+  });
+
     return{ message: "Joined as cohost", roomId: room.roomCode }
 
   }
@@ -418,7 +425,6 @@ export class RoomService {
     }
   }
 ]);
-console.log('cohost:',coHosts)
     return coHosts
   }
 
@@ -438,6 +444,12 @@ console.log('cohost:',coHosts)
       }
     });
     await room.save();
+  // Get updated cohost list
+  const activeCohosts = await this.getRoomCohosts(teacherId, roomCode);
+    pollSocket?.emitToRoom(roomCode, 'cohost-removed', {
+    removedUserId: userId,
+    activeCohosts: activeCohosts
+  });
     return {message:'coHost removed successfully'}
   }
 }
