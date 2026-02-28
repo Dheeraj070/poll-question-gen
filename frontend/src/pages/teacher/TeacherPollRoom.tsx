@@ -112,8 +112,8 @@ const [inviteLink,setInviteLink] = useState('')
     try {
       if (!currentUser?.uid || !roomCode) return;
       // Note: Afnan ne /cohost/ banaya hai. Agar base URL '/livequizzes' hai toh yeh chalega.
-      const res = await api.get(`/livequizzes/cohost/${currentUser.uid}/${roomCode}`);
-      setCohosts(res.data || []);
+      const res = await api.get(`/livequizzes/rooms/cohost/${currentUser.uid}/${roomCode}`);
+      setCohosts(res.data.activeCohosts || []);
     } catch (error) {
       console.error("Error fetching cohosts:", error);
     }
@@ -128,12 +128,11 @@ const [inviteLink,setInviteLink] = useState('')
   const handleRemoveCohost = async (cohostId: string) => {
     if (!window.confirm("Are you sure you want to remove this co-host?")) return;
     try {
-      await api.patch(`/livequizzes/cohost/${roomCode}`, {
-        hostId: currentUser?.uid,
-        cohostId: cohostId
+      await api.patch(`/livequizzes/rooms/cohost/${roomCode}`, {
+        teacherId: currentUser?.uid,
+        userId: cohostId
       });
       toast.success("Co-host removed successfully");
-      fetchCohosts(); // Remove hone ke baad list ko refresh karo
     } catch (error) {
       console.error("Error removing cohost:", error);
       toast.error("Failed to remove co-host");
@@ -394,11 +393,24 @@ const [inviteLink,setInviteLink] = useState('')
       socket.off('connect_error');
       socket.off('error');
       socket.off('poll-results-updated');
+      socket.off('cohost-joined');
+      socket.off('cohost-removed');
 
       // Set up new listeners
       socket.on('live-poll-results', handlePollUpdate);
       socket.on('poll-results-updated', (data) => {
         setPollResults(data)
+      });
+
+      socket.on('cohost-joined', (data) => {
+        console.log('joined:', data);
+        setCohosts(data.activeCohosts || []);
+        toast.success('A co-host has joined the room');
+      });
+      socket.on('cohost-removed', (data) => {
+        console.log('rm cohost:', data);
+        setCohosts(data.activeCohosts || []);
+        toast.info('A co-host was removed from the room');
       });
 
       socket.on('room-updated', (updatedRoom) => {
@@ -448,6 +460,8 @@ const [inviteLink,setInviteLink] = useState('')
       socket.off('error');
       socket.off('poll-results-updated');
       socket.emit('leave-room', roomCode, null);
+      socket.off('cohost-joined');
+      socket.off('cohost-removed');
     };
   }, [roomCode]);
 
