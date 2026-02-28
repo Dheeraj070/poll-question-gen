@@ -37,3 +37,11 @@ export interface GetCohostRoom {
   count: number;
 }
 
+export interface ActiveCohost {
+  userId: string;  
+  firstName: string;
+  lastName: string;
+  email: string;
+  addedAt: Date;
+}
+
