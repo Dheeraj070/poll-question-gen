@@ -18,18 +18,8 @@ const PollSchema = new mongoose.Schema({
 
 const CoHostSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-
-    addedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-
+    userId: { type: String, required: true },
+    addedBy: { type: String, required: true },
     addedAt: {
       type: Date,
       default: Date.now

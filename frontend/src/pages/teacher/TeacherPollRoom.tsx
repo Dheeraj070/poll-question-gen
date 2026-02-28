@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft, UserPlus } from 'lucide-react';
+import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft, UserPlus, Copy } from 'lucide-react';
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
+import { useAuth } from "@/lib/hooks/use-auth";
+
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text).then(() => {
@@ -90,7 +92,10 @@ type GeneratedQuestion = {
 };
 
 export default function TeacherPollRoom() {
+  const { user } = useAuth();
 const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
+const [isCreating,setIsCreating] = useState(false)
+const [inviteLink,setInviteLink] = useState('')
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
   
@@ -102,7 +107,30 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
   const roomCode: string = params.code as string;
-  const { user } = useAuthStore();
+  const { user:currentUser } = useAuthStore();
+
+      //handle invite cohost
+     const handleInviteCohost = async () => {
+
+    setIsCreating(true);
+    try {
+      if (!currentUser?.uid) {
+      toast.error("Authentication required to create assessments");
+      return;
+    }
+
+      const res = await api.post(`/livequizzes/rooms/cohost/${roomCode}`,{
+        userId: currentUser.uid
+      });
+      toast.success("Invite Link created successfully!");
+      setInviteLink(res.data.inviteLink);
+    } catch (error) {
+      console.error("Error creating Invite link:", error);
+      toast.error("Failed to create Invite Link");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -1301,6 +1329,7 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
     ];
 
     const selectedModelLabel = models.find(model => model.value === selectedModel)?.label || "Select Model";
+
     return (
       <div className={`relative ${className}`}>
         <button
@@ -1784,12 +1813,34 @@ const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
                   <BarChart2 className="w-4 h-4 mr-2" />
                   Poll Results
                 </Button>
-                <Button
-                  variant="outline"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite Cohost
-                </Button>
+                {inviteLink ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => copyToClipboard(inviteLink)}
+                    className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Invite Link
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleInviteCohost}
+                    disabled={isCreating}
+                  >
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Invite Cohost
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

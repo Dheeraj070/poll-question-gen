@@ -1,21 +1,31 @@
+import { useAuth } from "@/lib/hooks/use-auth";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import axios from "axios";
+import api from "@/lib/api/api";
+import { toast } from "sonner";
 
 const CohostInvite = () => {
     const params = useParams({ from: '/teacher/cohost-invite/$token' });
     const token: string = params.token as string;
     const navigate = useNavigate();
-
+    const { user } = useAuth();
 
     const handleAcceptInvite = async () => {
         try {
-            const response = await axios.post("/rooms/join-cohost", { token });
-            let { roomId } = response.data;
+            if (!user?.uid) {
+                toast.error("Authentication required to create assessments");
+                return;
+                }
+            const response:any = await api.post("/livequizzes/rooms/cohost", { token,userId:user.uid });
+            let { roomId, message } = response.data;
+            toast.success(message ?? 'joined as cohost successfully')
             navigate({ to: `/teacher/pollroom/${roomId}` });
         } catch (error) {
             console.error("Error joining as co-host:", error);
         }
+
+        
     };
+    
 
     return (
         <div className="min-h-screen flex items-center justify-center px-4 transition-colors duration-300">

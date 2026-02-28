@@ -1,9 +1,11 @@
 import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
-import type { Room as RoomType, Poll, PollAnswer } from '../interfaces/PollRoom.js';
+import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
 import {ObjectId} from 'mongodb'
-import { NotFoundError } from 'routing-controllers';
+import { HttpError, NotFoundError } from 'routing-controllers';
+import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
 
 @injectable()
 export class RoomService {
@@ -231,5 +233,84 @@ export class RoomService {
     }
     const updatedRoom = await Room.findOneAndUpdate({roomCode},{$pull:{students:userObjectId}},{new:true})
     return updatedRoom
+  }
+
+  //generate cohost invite
+  async generateCohostInvite(roomCode: string, userId: string): Promise<string> {
+
+      const room = await Room.findOne({roomCode});
+    if(!room){
+      throw new NotFoundError("Room is not found")
+    }
+
+    if (room.teacherId.toString() !== userId){
+      throw new HttpError(403,"Only host can generate invite")
+    }
+
+    const inviteId = uuidv4();
+
+    const token = jwt.sign(
+      {
+        roomId: room.roomCode,
+        role: "cohost",
+        jti: inviteId
+      },
+      process.env.COHOST_INVITE_SECRET,
+      { expiresIn: "30m" }
+    );
+
+    room.coHostInvite = {
+      createdAt: new Date(Date.now()),
+      inviteId,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      isActive: true
+    };
+
+    await room.save();
+
+    return `${process.env.APP_ORIGINS}/teacher/cohost-invite/${token}`
+
+  }
+
+  //join as cohost
+    async joinAsCohost(token:string,userId:string): Promise<{message:string,roomId:string}> {
+
+      const decoded = jwt.verify(
+      token,
+      process.env.COHOST_INVITE_SECRET
+    ) as CohostJwtPayload;
+    const room = await Room.findOne({roomCode:decoded.roomId});
+    if(!room || room.status !== "active"){
+      throw new HttpError(400,"Invalid room")
+    }
+    if(
+      !room.coHostInvite.isActive ||
+      room.coHostInvite.inviteId !== decoded.jti ||
+      room.coHostInvite.expiresAt < new Date()
+    ){
+      throw new HttpError(400,"Invite invalid or expired")
+    }
+
+    const user = await UserModel.findOne({firebaseUID:
+      userId});
+    if(user.role !== "teacher"){
+      throw new HttpError(403,"Only teachers allowed")
+    }
+
+     const already = room.coHosts.find(
+      c => c.userId.toString() === userId && c.isActive
+    );
+
+      if (!already) {
+      room.coHosts.push({
+        userId,
+        addedBy: room.teacherId
+      });
+    }
+
+    await room.save();
+
+    return{ message: "Joined as cohost", roomId: room.roomCode }
+
   }
 }
