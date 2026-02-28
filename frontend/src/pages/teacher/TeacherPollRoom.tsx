@@ -110,6 +110,10 @@ const [inviteLink,setInviteLink] = useState('')
   const roomCode: string = params.code as string;
   const { user:currentUser } = useAuthStore();
 
+  // Room creator ki ID store karne ke liye
+  const [hostId, setHostId] = useState<string | null>(null);
+  const isHost = currentUser?.uid === hostId;
+
       //handle invite cohost
      const handleInviteCohost = async () => {
 
@@ -366,10 +370,16 @@ const [inviteLink,setInviteLink] = useState('')
       socket.on('poll-results-updated', (data) => {
         setPollResults(data)
       });
+
       socket.on('room-updated', (updatedRoom) => {
-        // console.log('Room updated:', updatedRoom);
-        setStudents(updatedRoom.students || []);
-      });
+              // console.log('Room updated:', updatedRoom);
+              setStudents(updatedRoom.students || []);
+              
+              // Host ID save karo conditional rendering ke liye
+              if (updatedRoom.teacherId) {
+                setHostId(updatedRoom.teacherId);
+              }
+            });
 
       socket.on('connect', () => {
         // console.log('Socket connected with ID:', socket.id);
@@ -1840,37 +1850,9 @@ const [inviteLink,setInviteLink] = useState('')
                   <BarChart2 className="w-4 h-4 mr-2" />
                   Poll Results
                 </Button>
-                {inviteLink ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => copyToClipboard(inviteLink)}
-                    className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Invite Link
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={handleInviteCohost}
-                    disabled={isCreating}
-                  >
-                    {isCreating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Invite Cohost
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
 
-              <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
                 <div className="hidden md:block">
                   <ThemeToggle />
                 </div>
@@ -1880,31 +1862,48 @@ const [inviteLink,setInviteLink] = useState('')
                   size="sm"
                   className="flex items-center gap-1 sm:gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 text-xs sm:text-sm"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                   </svg>
                   <span className="hidden xs:inline">Copy Code</span>
                 </Button>
-                <Button
-                  onClick={() => setShowEndRoomConfirm(true)}
-                  variant="destructive"
-                  className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                  disabled={isEndingRoom}
-                >
-                  <LogOut size={16} />
-                  <span className="xs:inline">End Room</span>
-                </Button>
+                
+                {/* 🔒 SIRF HOST KO DIKHENGE YEH BUTTONS */}
+                {isHost && (
+                  <>
+                    {inviteLink ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => copyToClipboard(inviteLink)}
+                        className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                      >
+                        <Copy size={16} />
+                        <span className="xs:inline">Copy Invite Link</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleInviteCohost}
+                        disabled={isCreating}
+                        variant="outline"
+                        className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                      >
+                        {isCreating ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                        <span className="xs:inline">{isCreating ? "Creating..." : "Invite Cohost"}</span>
+                      </Button>
+                    )}
+                    
+                    <Button
+                      onClick={() => setShowEndRoomConfirm(true)}
+                      variant="destructive"
+                      className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                      disabled={isEndingRoom}
+                    >
+                      <LogOut size={16} />
+                      <span className="xs:inline">End Room</span>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
