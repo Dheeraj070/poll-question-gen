@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft, Shield } from 'lucide-react';
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,6 +244,8 @@ export default function TeacherPollRoom() {
   const [textFileContent, setTextFileContent] = useState('');
   const [fileName, setFileName] = useState('');
 
+  const [roomControlMode, setRoomControlMode] = useState<'full' | 'mic-disabled' | 'poll-disabled'>('full');
+
   // Handler for saving question edits
   const handleSaveQuestionEdit = () => {
     setEditingQuestion(null);
@@ -330,6 +332,16 @@ export default function TeacherPollRoom() {
       socket.on('poll-results-updated', (data) => {
         setPollResults(data)
       });
+
+      socket.on('room-control-updated', (data) => {
+        setRoomControlMode(data.mode);
+        if (data.mode === 'mic-disabled') {
+           setIsRecording(false);
+           setIsListening(false);
+           setIsLiveRecordingActive(false);
+        }
+      });
+
       socket.on('room-updated', (updatedRoom) => {
         // console.log('Room updated:', updatedRoom);
         setStudents(updatedRoom.students || []);
