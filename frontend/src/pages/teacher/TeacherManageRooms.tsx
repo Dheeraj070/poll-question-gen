@@ -13,11 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api/api";
 
 interface Cohost {
-  userId: string;  
-  firstName: string;
-  lastName: string;
-  email: string;
-  addedAt: Date;
+    userId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    addedAt: Date;
 }
 interface Room {
     roomCode: string;
@@ -66,7 +66,7 @@ export default function ManageRoom() {
                     // If both have the same status, sort by creation date (newest first)
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 });
-                    console.log('Fetched rooms:', sortedRooms);
+                console.log('Fetched rooms:', sortedRooms);
                 setRooms(sortedRooms);
             } catch (err) {
                 console.error('Error fetching rooms:', err);
@@ -229,8 +229,7 @@ export default function ManageRoom() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
-                                    {/* 1. Participants */}
+                                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">                                    {/* 1. Participants */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <Users className="h-4 w-4 text-blue-500" />
                                         <div>
