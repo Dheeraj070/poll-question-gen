@@ -217,24 +217,24 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
       const numQuestions = questionCount ? parseInt(questionCount, 10) : 2;
 
       let segments: Record<string, string>;
-      // if (transcript.length <= SEGMENTATION_THRESHOLD) {
-      //   console.log('[generateQuestions] Small transcript detected. Using full transcript without segmentation.');
-      //   console.log('Transcript:', transcript);
-      //   segments = { full: transcript };
-      // } else {
-      //   console.log('[generateQuestions] Transcript is long; running segmentation...');
-      //   segments = await this.aiContentService.segmentTranscript(transcript, selectedModel);
-      // }
+      if (transcript.length <= SEGMENTATION_THRESHOLD) {
+        console.log('[generateQuestions] Small transcript detected. Using full transcript without segmentation.');
+        console.log('Transcript:', transcript);
+        segments = { full: transcript };
+      } else {
+        console.log('[generateQuestions] Transcript is long; running segmentation...');
+        segments = await this.aiContentService.segmentTranscript(transcript, selectedModel);
+      }
 
       // ✅ Safe default questionSpec with custom count
       let safeSpec: QuestionSpec[] = [{ SOL: numQuestions }];
-      // if (questionSpec && typeof questionSpec === 'object' && !Array.isArray(questionSpec)) {
-      //   safeSpec = [questionSpec];
-      // } else if (Array.isArray(questionSpec) && typeof questionSpec[0] === 'object') {
-      //   safeSpec = questionSpec;
-      // } else {
-      //   console.warn(`Invalid questionSpec provided; using default [{ SOL: ${numQuestions} }]`);
-      // }
+      if (questionSpec && typeof questionSpec === 'object' && !Array.isArray(questionSpec)) {
+        safeSpec = [questionSpec];
+      } else if (Array.isArray(questionSpec) && typeof questionSpec[0] === 'object') {
+        safeSpec = questionSpec;
+      } else {
+        console.warn(`Invalid questionSpec provided; using default [{ SOL: ${numQuestions} }]`);
+      }
       console.log('Using questionSpec:', safeSpec);
       console.log('[generateQuestions] Transcript length:', transcript.length);
       console.log('[generateQuestions] Transcript preview:', segments);
@@ -249,7 +249,7 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
       return res.json({
         message: 'Questions generated successfully from transcript.',
         transcriptPreview: transcript.substring(0, 200) + '...',
-        segmentsCount: Object.keys([]).length,
+        segmentsCount: Object.keys(segments).length,
         totalQuestions: generatedQuestions.length,
         requestedQuestions: numQuestions,
         questions: generatedQuestions,
