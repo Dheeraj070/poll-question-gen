@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Clock, BarChart2, AlertCircle, Loader2, Play, Square, MoreVertical, Eye } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { Users, Clock, BarChart2, AlertCircle, Loader2, Play, Square, MoreVertical, Eye, UserPlus } from "lucide-react"; import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -19,6 +18,7 @@ interface Room {
     createdAt: string;
     status: 'active' | 'ended';
     teacherId: string;
+    cohosts?: any[]; // <-- YEH ADD KARNA HAI
     polls: {
         _id: string;
         question: string;
@@ -98,23 +98,23 @@ export default function ManageRoom() {
         return `~${estimatedDuration} mins`;
     };
 
-   /* const getStatusColor = (status: string) => {
-        return status === 'active'
-            ? 'text-green-600 dark:text-green-400'
-            : 'text-gray-600 dark:text-gray-400';
-    };*/
+    /* const getStatusColor = (status: string) => {
+         return status === 'active'
+             ? 'text-green-600 dark:text-green-400'
+             : 'text-gray-600 dark:text-gray-400';
+     };*/
 
     const handleEndRoom = async (roomCode: string, event: React.MouseEvent) => {
         event.stopPropagation();
         setEndingRoom(roomCode);
-        
+
         try {
             await api.post(`/livequizzes/rooms/${roomCode}/end`);
-            
+
             // Update the room status locally
-            setRooms(prevRooms => 
-                prevRooms.map(room => 
-                    room.roomCode === roomCode 
+            setRooms(prevRooms =>
+                prevRooms.map(room =>
+                    room.roomCode === roomCode
                         ? { ...room, status: 'ended' as const }
                         : room
                 )
@@ -210,8 +210,8 @@ export default function ManageRoom() {
                                     <Badge
                                         variant={room.status === 'active' ? 'default' : 'secondary'}
                                         className={`$${room.status === 'active'
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                                             }`}
                                     >
                                         {room.status === 'active' ? 'Active' : 'Completed'}
@@ -223,6 +223,7 @@ export default function ManageRoom() {
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
+                                    {/* 1. Participants */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <Users className="h-4 w-4 text-blue-500" />
                                         <div>
@@ -230,6 +231,19 @@ export default function ManageRoom() {
                                             <p className="font-medium text-xs sm:text-base">{calculateParticipants(room)}</p>
                                         </div>
                                     </div>
+
+                                    {/* 2. Co-hosts */}
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                        <UserPlus className="h-4 w-4 text-blue-500" />
+                                        <div>
+                                            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Co-hosts</p>
+                                            <p className="font-medium text-xs sm:text-base">
+                                                {room.cohosts ? room.cohosts.filter((c: any) => c.status === 'active').length : 0}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Questions */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <BarChart2 className="h-4 w-4 text-blue-500" />
                                         <div>
@@ -237,6 +251,8 @@ export default function ManageRoom() {
                                             <p className="font-medium text-xs sm:text-base">{room.polls.length}</p>
                                         </div>
                                     </div>
+
+                                    {/* 4. Duration */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <Clock className="h-4 w-4 text-blue-500" />
                                         <div>
