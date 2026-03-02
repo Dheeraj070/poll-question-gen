@@ -664,6 +664,18 @@ export default function TeacherPollRoom() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+
+      // Release recording lock
+      try {
+        if (currentUser?.uid) {
+          await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+            userId: currentUser.uid
+          });
+        }
+      } catch (error) {
+        console.error("Error releasing recording lock:", error);
+      }
+
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
       setIsProcessing(true);
@@ -711,6 +723,19 @@ export default function TeacherPollRoom() {
       }
     } else {
       try {
+        // Try to acquire recording lock before starting
+        if (currentUser?.uid) {
+          const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
+            userId: currentUser.uid,
+            userName: currentUser.firstName || currentUser.email || "Unknown"
+          });
+
+          if (!lockResponse.data.success) {
+            toast.error(lockResponse.data.message);
+            return;
+          }
+        }
+
         if (useWhisper) {
           setShowRecordModal(true);
         }
@@ -745,7 +770,18 @@ export default function TeacherPollRoom() {
           setInterimTranscript("");
         }
       } catch (error) {
-        // Error accessing microphone
+        console.error("Error starting recording:", error);
+        toast.error("Failed to start recording");
+        // Ensure lock is released if there was an error
+        try {
+          if (currentUser?.uid) {
+            await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+              userId: currentUser.uid
+            });
+          }
+        } catch (releaseError) {
+          console.error("Error releasing lock after failed start:", releaseError);
+        }
       }
     }
   }, [
@@ -766,7 +802,9 @@ export default function TeacherPollRoom() {
     setQueuedViewerIndex,
     setQueuedGeneratedQuestions,
     updateAudioLevel,
-    setInterimTranscript
+    setInterimTranscript,
+    currentUser,
+    roomCode
   ]);
 
 
@@ -1668,6 +1706,7 @@ export default function TeacherPollRoom() {
     });
 
   };
+
   const handleLaunchPoll = async () => {
     const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
@@ -1779,26 +1818,60 @@ export default function TeacherPollRoom() {
                   {/* STUDENTS TAB */}
                   {activeSidebarTab === 'students' && (
                     students.length > 0 ? (
-                      students.map((student: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></div>
-                          {!isSidebarCollapsed && (
-                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                              {student?.firstName}
-                            </span>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-2">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
-                          {!isSidebarCollapsed ? "No students connected yet" : "..."}
-                        </p>
-                      </div>
+                      students.map((student: any, index: number) => {
+                        const studentName = student?.firstName;
+                        return (
+                          <div
+                            key={index}
+                            className="
+              group flex items-center justify-between
+              w-full
+              p-2 rounded-lg
+              hover:bg-gray-100 dark:hover:bg-gray-700
+              transition-colors
+            "
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+
+                              <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+
+                              {!isSidebarCollapsed && (
+                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                  {studentName}
+                                </span>
+                              )}
+
+                            </div>
+                            {!isSidebarCollapsed && (
+                              <Trash2
+                                size={18}
+                                className="
+                  text-red-500
+                  cursor-pointer
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-all duration-200
+                  hover:text-red-700 hover:scale-110
+                  flex-shrink-0
+                "
+                                onClick={() => handleRemoveStudent(student.email)}
+                              />
+                            )}
+
+                          </div>
+                        )
+                      }
+
+                      )
+
                     )
+                      : (
+                        <div className="p-2">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                            {!isSidebarCollapsed && "No students connected yet"}
+                          </p>
+                        </div>
+                      )
                   )}
 
                   {/* COHOSTS TAB (Real Data) */}
@@ -1811,7 +1884,7 @@ export default function TeacherPollRoom() {
                         >
                           <div className="flex items-center overflow-hidden">
                             {/* Purple round dot */}
-                            <div className="w-2 h-2 rounded-full bg-purple-500 mr-2 flex-shrink-0"></div>
+                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2 shrink-0"></div>
                             {!isSidebarCollapsed && (
                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                                 {cohost.firstName || cohost.name || "Cohost"}
@@ -1835,7 +1908,7 @@ export default function TeacherPollRoom() {
                     ) : (
                       <div className="p-2">
                         <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
-                          {!isSidebarCollapsed ? "No co-hosts joined yet" : "..."}
+                          {!isSidebarCollapsed && "No co-hosts joined yet"}
                         </p>
                       </div>
                     )
