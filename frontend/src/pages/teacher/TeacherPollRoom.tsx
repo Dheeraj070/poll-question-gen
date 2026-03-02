@@ -1754,8 +1754,8 @@ export default function TeacherPollRoom() {
                     <button
                       onClick={() => setActiveSidebarTab('students')}
                       className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${activeSidebarTab === 'students'
-                          ? 'bg-white text-[#9b51e0] shadow-sm'
-                          : 'text-white hover:bg-white/20'
+                        ? 'bg-white text-[#9b51e0] shadow-sm'
+                        : 'text-white hover:bg-white/20'
                         }`}
                     >
                       Students
@@ -1763,8 +1763,8 @@ export default function TeacherPollRoom() {
                     <button
                       onClick={() => setActiveSidebarTab('cohosts')}
                       className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${activeSidebarTab === 'cohosts'
-                          ? 'bg-white text-[#9b51e0] shadow-sm'
-                          : 'text-white hover:bg-white/20'
+                        ? 'bg-white text-[#9b51e0] shadow-sm'
+                        : 'text-white hover:bg-white/20'
                         }`}
                     >
                       Cohosts
@@ -1894,14 +1894,16 @@ export default function TeacherPollRoom() {
                   <Wand2 className="w-4 h-4 mr-2" />
                   {showPreview ? 'Generated Questions' : 'Generated Questions'}
                 </Button>
-                <Button
-                  variant={showPollModal ? "default" : "outline"}
-                  onClick={handleCreateManualPoll}
-                  className="mr-2"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Live Poll
-                </Button>
+                {isHost && (
+                  <Button
+                    variant={showPollModal ? "default" : "outline"}
+                    onClick={handleCreateManualPoll}
+                    className="mr-2"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Live Poll
+                  </Button>
+                )}
                 <Button
                   variant={showResultsModal ? "default" : "outline"}
                   onClick={handlePollResultsbutton}
