@@ -665,17 +665,6 @@ export default function TeacherPollRoom() {
         cancelAnimationFrame(animationFrameRef.current);
       }
 
-      // Release recording lock
-      try {
-        if (currentUser?.uid) {
-          await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-            userId: currentUser.uid
-          });
-        }
-      } catch (error) {
-        console.error("Error releasing recording lock:", error);
-      }
-
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
       setIsProcessing(true);
@@ -723,18 +712,6 @@ export default function TeacherPollRoom() {
       }
     } else {
       try {
-        // Try to acquire recording lock before starting
-        if (currentUser?.uid) {
-          const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
-            userId: currentUser.uid,
-            userName: currentUser.firstName || currentUser.email || "Unknown"
-          });
-
-          if (!lockResponse.data.success) {
-            toast.error(lockResponse.data.message);
-            return;
-          }
-        }
 
         if (useWhisper) {
           setShowRecordModal(true);
@@ -770,18 +747,7 @@ export default function TeacherPollRoom() {
           setInterimTranscript("");
         }
       } catch (error) {
-        console.error("Error starting recording:", error);
-        toast.error("Failed to start recording");
-        // Ensure lock is released if there was an error
-        try {
-          if (currentUser?.uid) {
-            await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-              userId: currentUser.uid
-            });
-          }
-        } catch (releaseError) {
-          console.error("Error releasing lock after failed start:", releaseError);
-        }
+        console.error("Error accessing microphone:", error);
       }
     }
   }, [
@@ -803,8 +769,6 @@ export default function TeacherPollRoom() {
     setQueuedGeneratedQuestions,
     updateAudioLevel,
     setInterimTranscript,
-    currentUser,
-    roomCode
   ]);
 
 
