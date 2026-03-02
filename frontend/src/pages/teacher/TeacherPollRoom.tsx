@@ -1658,7 +1658,16 @@ export default function TeacherPollRoom() {
       });
     }, 1000);
   };
+  const handleRemoveStudent = (studentEmail: string) => {
 
+    if (!studentEmail) return;
+
+    socket.emit("remove-student", {
+      roomCode,
+      email: studentEmail,
+    });
+
+  };
   const handleLaunchPoll = async () => {
     const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
