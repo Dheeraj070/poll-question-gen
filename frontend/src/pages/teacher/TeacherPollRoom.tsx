@@ -2054,6 +2054,8 @@ export default function TeacherPollRoom() {
                     <Wand2 className="w-4 h-4 mr-2" />
                     {showPreview ? 'Generated Questions' : 'Generated Questions'}
                   </Button>
+                  {
+                    isHost && (
                   <Button
                     variant={showPollModal ? "default" : "outline"}
                     onClick={() => {
@@ -2065,6 +2067,8 @@ export default function TeacherPollRoom() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create Live Poll
                   </Button>
+                    )
+                  }
                   <Button
                     variant={showResultsModal ? "default" : "outline"}
                     onClick={() => {
@@ -2076,6 +2080,8 @@ export default function TeacherPollRoom() {
                     <BarChart2 className="w-4 h-4 mr-2" />
                     Poll Results
                   </Button>
+                  {
+                    isHost && (
                   <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                       onClick={() => {
@@ -2090,6 +2096,8 @@ export default function TeacherPollRoom() {
                       End Room
                     </Button>
                   </div>
+                    )
+                  }
                 </div>
               </div>
 
