@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Clock, BarChart2, AlertCircle, Loader2, Play, Eye } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { Users, Clock, BarChart2, AlertCircle, Loader2, Play, Eye, User } from "lucide-react"; import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -13,6 +12,7 @@ interface Room {
     createdAt: string;
     status: 'active' | 'ended';
     teacherId: string;
+    hostName?: string;
     polls: {
         _id: string;
         question: string;
@@ -39,46 +39,46 @@ export default function TeacherCohostedRooms() {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 // --- DUMMY DATA FOR UI TESTING ---
                 // TODO: Replace this with actual API call when backend is ready
                 const response = await api.get(`/livequizzes/rooms/cohost/${user.uid}`);
-                
-                // setTimeout(() => {
-                    // const dummyData: Room[] = [
-                    //     {
-                    //         roomCode: "MATH101",
-                    //         name: "Advanced Calculus (Co-hosted)",
-                    //         createdAt: new Date().toISOString(),
-                    //         status: 'active',
-                    //         teacherId: "other-teacher-1",
-                    //         polls: [
-                    //             { _id: "p1", question: "Q1", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u2", answerIndex: 1}] },
-                    //             { _id: "p2", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] }
-                    //         ]
-                    //     },
-                    //     {
-                    //         roomCode: "PHY202",
-                    //         name: "Quantum Physics Quiz (Co-hosted)",
-                    //         createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-                    //         status: 'ended',
-                    //         teacherId: "other-teacher-2",
-                    //         polls: [
-                    //             { _id: "p3", question: "Q1", options: ["A", "B", "C"], correctOptionIndex: 1, answers: [{userId: "u1", answerIndex: 1}, {userId: "u2", answerIndex: 1}, {userId: "u3", answerIndex: 0}] },
-                    //             { _id: "p4", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] },
-                    //             { _id: "p5", question: "Q3", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u3", answerIndex: 0}] }
-                    //         ]
-                    //     }
-                    // ];
-                    
-                    const sortedRooms = response.data.rooms.sort((a: Room, b: Room) => {
-                        if (a.status === 'active' && b.status === 'ended') return -1;
-                        if (a.status === 'ended' && b.status === 'active') return 1;
-                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                    });
 
-                    setRooms(sortedRooms);
-                    setLoading(false);
+                // setTimeout(() => {
+                // const dummyData: Room[] = [
+                //     {
+                //         roomCode: "MATH101",
+                //         name: "Advanced Calculus (Co-hosted)",
+                //         createdAt: new Date().toISOString(),
+                //         status: 'active',
+                //         teacherId: "other-teacher-1",
+                //         polls: [
+                //             { _id: "p1", question: "Q1", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u2", answerIndex: 1}] },
+                //             { _id: "p2", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] }
+                //         ]
+                //     },
+                //     {
+                //         roomCode: "PHY202",
+                //         name: "Quantum Physics Quiz (Co-hosted)",
+                //         createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+                //         status: 'ended',
+                //         teacherId: "other-teacher-2",
+                //         polls: [
+                //             { _id: "p3", question: "Q1", options: ["A", "B", "C"], correctOptionIndex: 1, answers: [{userId: "u1", answerIndex: 1}, {userId: "u2", answerIndex: 1}, {userId: "u3", answerIndex: 0}] },
+                //             { _id: "p4", question: "Q2", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}] },
+                //             { _id: "p5", question: "Q3", options: ["A", "B"], correctOptionIndex: 0, answers: [{userId: "u1", answerIndex: 0}, {userId: "u3", answerIndex: 0}] }
+                //         ]
+                //     }
+                // ];
+
+                const sortedRooms = response.data.rooms.sort((a: Room, b: Room) => {
+                    if (a.status === 'active' && b.status === 'ended') return -1;
+                    if (a.status === 'ended' && b.status === 'active') return 1;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+
+                setRooms(sortedRooms);
+                setLoading(false);
                 // }, 1000); // 1 second fake delay to show loading spinner
 
             } catch (err) {
@@ -111,7 +111,7 @@ export default function TeacherCohostedRooms() {
 
     const calculateDuration = (room: Room) => {
         const pollCount = room.polls.length;
-        const estimatedDuration = pollCount * 2; 
+        const estimatedDuration = pollCount * 2;
         return `~${estimatedDuration} mins`;
     };
 
@@ -187,8 +187,8 @@ export default function TeacherCohostedRooms() {
                                     <Badge
                                         variant={room.status === 'active' ? 'default' : 'secondary'}
                                         className={`${room.status === 'active'
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                                             }`}
                                     >
                                         {room.status === 'active' ? 'Active' : 'Completed'}
@@ -199,7 +199,8 @@ export default function TeacherCohostedRooms() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
+                                <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
+                                    {/* 1. Participants */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <Users className="h-4 w-4 text-purple-500" />
                                         <div>
@@ -207,6 +208,8 @@ export default function TeacherCohostedRooms() {
                                             <p className="font-medium text-xs sm:text-base">{calculateParticipants(room)}</p>
                                         </div>
                                     </div>
+
+                                    {/* 2. Questions */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <BarChart2 className="h-4 w-4 text-purple-500" />
                                         <div>
@@ -214,11 +217,24 @@ export default function TeacherCohostedRooms() {
                                             <p className="font-medium text-xs sm:text-base">{room.polls.length}</p>
                                         </div>
                                     </div>
+
+                                    {/* 3. Duration */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <Clock className="h-4 w-4 text-purple-500" />
                                         <div>
                                             <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Duration</p>
                                             <p className="font-medium text-xs sm:text-base">{calculateDuration(room)}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* 4. Host (NAYA WALA) */}
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                        <User className="h-4 w-4 text-purple-500" />
+                                        <div>
+                                            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Host</p>
+                                            <p className="font-medium text-xs sm:text-base">
+                                                {room.hostName || "Host"}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
