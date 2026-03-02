@@ -12,13 +12,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import api from "@/lib/api/api";
 
+interface Cohost {
+  userId: string;  
+  firstName: string;
+  lastName: string;
+  email: string;
+  addedAt: Date;
+}
 interface Room {
     roomCode: string;
     name: string;
     createdAt: string;
     status: 'active' | 'ended';
     teacherId: string;
-    cohosts?: any[]; // <-- YEH ADD KARNA HAI
+    coHosts?: Cohost[];
     polls: {
         _id: string;
         question: string;
@@ -59,7 +66,7 @@ export default function ManageRoom() {
                     // If both have the same status, sort by creation date (newest first)
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 });
-
+                    console.log('Fetched rooms:', sortedRooms);
                 setRooms(sortedRooms);
             } catch (err) {
                 console.error('Error fetching rooms:', err);
@@ -238,7 +245,7 @@ export default function ManageRoom() {
                                         <div>
                                             <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Co-hosts</p>
                                             <p className="font-medium text-xs sm:text-base">
-                                                {room.cohosts ? room.cohosts.filter((c: any) => c.status === 'active').length : 0}
+                                                {room.coHosts?.filter((c: any) => c.isActive).length ?? 0}
                                             </p>
                                         </div>
                                     </div>
