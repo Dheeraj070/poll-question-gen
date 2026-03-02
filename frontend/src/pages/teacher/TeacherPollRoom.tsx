@@ -1739,8 +1739,8 @@ const [inviteLink,setInviteLink] = useState('')
               </div>
 
               {/* Capsule Toggle Button (Only show if not collapsed) */}
-              {!isSidebarCollapsed && (
-                <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
+              {isHost && !isSidebarCollapsed && (
+                  <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex bg-[#9b51e0] dark:bg-purple-700 rounded-full p-1 text-sm font-semibold shadow-inner">
                     <button
                       onClick={() => setActiveSidebarTab('students')}
@@ -1794,8 +1794,8 @@ const [inviteLink,setInviteLink] = useState('')
                     )
                   )}
 
-{/* COHOSTS TAB (Real Data) */}
-                  {activeSidebarTab === 'cohosts' && (
+                {/* COHOSTS TAB (Real Data) */}
+                  {isHost && activeSidebarTab === 'cohosts' && (
                     cohosts.length > 0 ? (
                       cohosts.map((cohost, index) => (
                         <div
