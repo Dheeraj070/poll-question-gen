@@ -13,6 +13,12 @@ interface Room {
     status: 'active' | 'ended';
     teacherId: string;
     hostName?: string;
+
+    teacherName?: string;
+    teacher?: {
+        firstName: string;
+        lastName: string;
+    };
     polls: {
         _id: string;
         question: string;
@@ -42,7 +48,6 @@ export default function TeacherCohostedRooms() {
 
                 // --- DUMMY DATA FOR UI TESTING ---
                 // TODO: Replace this with actual API call when backend is ready
-                const response = await api.get(`/livequizzes/rooms/cohost/${user.uid}`);
 
                 // setTimeout(() => {
                 // const dummyData: Room[] = [
@@ -71,15 +76,20 @@ export default function TeacherCohostedRooms() {
                 //     }
                 // ];
 
+                const response = await api.get(`/livequizzes/rooms/cohost/${user.uid}`);
+
+                // Simple date sort 
                 const sortedRooms = response.data.rooms.sort((a: Room, b: Room) => {
-                    if (a.status === 'active' && b.status === 'ended') return -1;
-                    if (a.status === 'ended' && b.status === 'active') return 1;
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 });
 
                 setRooms(sortedRooms);
                 setLoading(false);
+
+                setRooms(sortedRooms);
+                setLoading(false);
                 // }, 1000); // 1 second fake delay to show loading spinner
+                // console.log("🔍 Cohost API response:", response.data.rooms[0]);
 
             } catch (err) {
                 console.error('Error fetching rooms:', err);
@@ -175,9 +185,7 @@ export default function TeacherCohostedRooms() {
                     {rooms.map((room) => (
                         <Card
                             key={room.roomCode}
-                            className={`transition-all hover:shadow-lg ${room.status === 'ended' ? 'cursor-pointer hover:border-purple-300' : ''
-                                }`}
-                            onClick={() => room.status === 'ended' ? handleViewAnalysis(room.roomCode, {} as React.MouseEvent) : undefined}
+                            className="transition-all hover:shadow-lg"
                         >
                             <CardHeader className="pb-3 sm:pb-4">
                                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0">
@@ -185,13 +193,10 @@ export default function TeacherCohostedRooms() {
                                         {room.name}
                                     </CardTitle>
                                     <Badge
-                                        variant={room.status === 'active' ? 'default' : 'secondary'}
-                                        className={`${room.status === 'active'
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                                            }`}
+                                        variant="default"
+                                        className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                     >
-                                        {room.status === 'active' ? 'Active' : 'Completed'}
+                                        Active
                                     </Badge>
                                 </div>
                                 <div className="text-xs sm:text-sm text-purple-600 dark:text-purple-400">
@@ -227,38 +232,30 @@ export default function TeacherCohostedRooms() {
                                         </div>
                                     </div>
 
-                                    {/* 4. Host (NAYA WALA) */}
+                                    {/* 4. Host */}
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         <User className="h-4 w-4 text-purple-500" />
                                         <div>
                                             <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Host</p>
                                             <p className="font-medium text-xs sm:text-base">
-                                                {room.hostName || "Host"}
+                                                {room.teacherName ||
+                                                    (room.teacher?.firstName && room.teacher?.lastName
+                                                        ? `${room.teacher.firstName} ${room.teacher.lastName}`.trim()
+                                                        : "Host")}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {room.status === 'active' ? (
-                                    <div className="flex flex-col xs:flex-row gap-2">
-                                        <Button
-                                            onClick={(e) => handleReturnToRoom(room.roomCode, e)}
-                                            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-base"
-                                        >
-                                            <Play className="h-4 w-4 mr-1 sm:mr-2" />
-                                            Continue
-                                        </Button>
-                                    </div>
-                                ) : (
+                                <div className="flex flex-col xs:flex-row gap-2">
                                     <Button
-                                        onClick={(e) => handleViewAnalysis(room.roomCode, e)}
-                                        variant="outline"
-                                        className="w-full border-purple-300 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 text-xs sm:text-base"
+                                        onClick={(e) => handleReturnToRoom(room.roomCode, e)}
+                                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-base"
                                     >
-                                        <Eye className="h-4 w-4 mr-1 sm:mr-2" />
-                                        View Results
+                                        <Play className="h-4 w-4 mr-1 sm:mr-2" />
+                                        Continue
                                     </Button>
-                                )}
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
