@@ -28,7 +28,6 @@ export interface Room {
 
 export interface CohostJwtPayload extends JwtPayload {
   roomId: string;
-  role: "cohost";
   jti: string;
 }
 
