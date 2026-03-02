@@ -1844,11 +1844,11 @@ const [inviteLink,setInviteLink] = useState('')
             {/* Header */}
             <div className="fixed top-0 left-0 w-full h-16 bg-white dark:bg-gray-900 border-b border-slate-200 dark:border-gray-700 shadow-sm px-4 py-2 flex items-center justify-between z-50">
               <div className="flex items-center">
-<Button
+                <Button
                   variant="ghost"
                   size="icon"
                   className="mr-2"
-                  onClick={() => navigate({ to: isHost ? '/teacher/manage-rooms' : '/teacher/home' })}
+                  onClick={() => navigate({ to: isHost ? '/teacher/manage-rooms' : '/teacher/cohosted-rooms' })}
                   title={isHost ? "Back to Manage Rooms" : "Back to Home"}
                 >
                   <ArrowLeft className="h-5 w-5" />
