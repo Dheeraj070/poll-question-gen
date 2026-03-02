@@ -256,7 +256,6 @@ export class RoomService {
     const token = jwt.sign(
       {
         roomId: room.roomCode,
-        role: "cohost",
         jti: inviteId
       },
       process.env.COHOST_INVITE_SECRET,
