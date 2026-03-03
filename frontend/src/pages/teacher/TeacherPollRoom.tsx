@@ -96,6 +96,7 @@ export default function TeacherPollRoom() {
   const navigate = useNavigate();
   const roomCode: string = params.code as string;
   const { user } = useAuthStore();
+  
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -214,6 +215,12 @@ export default function TeacherPollRoom() {
   const [_showGGMLRecordModel, setShowGGMLRecordModel] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | undefined>(undefined);
 
+    // Recording lock state
+    const [recordingLockStatus, setRecordingLockStatus] = useState<{
+      isLocked: boolean;
+      currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
+    }>({ isLocked: false });
+    const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // UI state for queued question viewer shown after mic stops
   const [_showQueuedViewer, setShowQueuedViewer] = useState(false);
@@ -563,6 +570,18 @@ export default function TeacherPollRoom() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+
+        // Release recording lock
+            try {
+              if (user?.uid) {
+                await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+                  userId: user.uid
+                });
+              }
+            } catch (error) {
+              console.error("Error releasing recording lock:", error);
+            }
+
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
       setIsProcessing(true);
@@ -610,6 +629,25 @@ export default function TeacherPollRoom() {
       }
     } else {
       try {
+
+         // Check if someone else is recording
+                if (recordingLockStatus.isLocked && recordingLockStatus.currentRecorder?.userId !== user?.uid) {
+                  toast.error(`${recordingLockStatus.currentRecorder?.userName || 'Another user'} is already recording`);
+                  return;
+                }
+        // Try to acquire recording lock before starting
+                if (user?.uid) {
+                  const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
+                    userId: user.uid,
+                    userName: user.name || "Unknown"
+                  });
+        
+                  if (!lockResponse.data.success) {
+                    toast.error(lockResponse.data.message);
+                    return;
+                  }
+                }
+        
         if (useWhisper) {
           setShowRecordModal(true);
         }
@@ -645,6 +683,16 @@ export default function TeacherPollRoom() {
         }
       } catch (error) {
         // Error accessing microphone
+         // Ensure lock is released if there was an error
+                try {
+                  if (user?.uid) {
+                    await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+                      userId: user.uid
+                    });
+                  }
+                } catch (releaseError) {
+                  console.error("Error releasing lock after failed start:", releaseError);
+                }
       }
     }
   }, [
@@ -665,7 +713,9 @@ export default function TeacherPollRoom() {
     setQueuedViewerIndex,
     setQueuedGeneratedQuestions,
     updateAudioLevel,
-    setInterimTranscript
+    setInterimTranscript,
+    roomCode,
+    recordingLockStatus,
   ]);
 
 
@@ -713,6 +763,43 @@ export default function TeacherPollRoom() {
       }
     };
   }, [language, handleRecordingToggle]);
+
+    // Poll recording lock status and listen to socket events
+    useEffect(() => {
+      const pollRecordingStatus = async () => {
+        try {
+          if (!roomCode) return;
+          const response = await api.get(`/livequizzes/rooms/${roomCode}/recording/status`);
+          setRecordingLockStatus(response.data);
+        } catch (error) {
+          console.error("Error polling recording status:", error);
+        }
+      };
+  
+      // Poll every 2 seconds
+      recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
+  
+      // Listen for recording started event
+      socket.on('recording-started', (data: any) => {
+        setRecordingLockStatus({
+          isLocked: true,
+          currentRecorder: data
+        });
+      });
+  
+      // Listen for recording stopped event
+      socket.on('recording-stopped', () => {
+        setRecordingLockStatus({ isLocked: false });
+      });
+  
+      return () => {
+        if (recordingLockPollIntervalRef.current) {
+          clearInterval(recordingLockPollIntervalRef.current);
+        }
+        socket.off('recording-started');
+        socket.off('recording-stopped');
+      };
+    }, [roomCode]);
 
   const handleAudioFromRecording = async (data: Blob) => {
     if (!data) return;

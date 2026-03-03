@@ -3,7 +3,8 @@ import { Room } from '../../../shared/database/models/Room.js';
 import type { Room as RoomType, Poll, PollAnswer } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
 import {ObjectId} from 'mongodb'
-import { NotFoundError } from 'routing-controllers';
+import { HttpError, NotFoundError } from 'routing-controllers';
+import { pollSocket } from '../utils/PollSocket.js';
 
 @injectable()
 export class RoomService {
@@ -231,5 +232,114 @@ export class RoomService {
     }
     const updatedRoom = await Room.findOneAndUpdate({roomCode},{$pull:{students:userObjectId}},{new:true})
     return updatedRoom
+  }
+
+    // Recording lock management
+  async acquireRecordingLock(
+    roomCode: string,
+    userId: string,
+    userName?: string
+  ): Promise<{ success: boolean; message: string; currentRecorder?: { userId: string; userName?: string } }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    // Check if recording lock exists and is still valid
+    if (room.recordingLock) {
+      const now = new Date();
+      // If lock hasn't expired and it's not the same user, deny access
+      if (room.recordingLock.expiresAt && room.recordingLock.expiresAt > now && room.recordingLock.userId !== userId) {
+        return {
+          success: false,
+          message: `Recording is in use by ${room.recordingLock.userName || 'another user'}`,
+          currentRecorder: {
+            userId: room.recordingLock.userId,
+            userName: room.recordingLock.userName
+          }
+        };
+      }
+    }
+    // Acquire the lock with 30 minute timeout
+    const lockExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    await Room.updateOne(
+      { roomCode },
+      {
+        recordingLock: {
+          userId,
+          userName,
+          lockedAt: new Date(),
+          expiresAt: lockExpiresAt
+        }
+      }
+    );
+
+    // Notify all users in the room that recording has started
+    pollSocket?.emitToRoom(roomCode, 'recording-started', {
+      userId,
+      userName
+    });
+
+    return {
+      success: true,
+      message: "Recording lock acquired"
+    };
+  }
+
+    async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    // Only allow the user who acquired the lock to release it
+    if (room.recordingLock && room.recordingLock.userId !== userId) {
+      throw new HttpError(403, "Only the user who started recording can stop it");
+    }
+
+    // Release the lock
+    await Room.updateOne(
+      { roomCode },
+      {
+        recordingLock: null
+      }
+    );
+
+    // Notify all users in the room that recording has stopped
+    pollSocket?.emitToRoom(roomCode, 'recording-stopped', {
+      userId
+    });
+
+    return {
+      success: true,
+      message: "Recording lock released"
+    };
+  }
+
+    async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    if (!room.recordingLock) {
+      return { isLocked: false };
+    }
+
+    const now = new Date();
+    if (room.recordingLock.expiresAt && room.recordingLock.expiresAt <= now) {
+      // Lock has expired, clear it
+      await Room.updateOne({ roomCode }, { recordingLock: null });
+      return { isLocked: false };
+    }
+
+    return {
+      isLocked: true,
+      currentRecorder: {
+        userId: room.recordingLock.userId,
+        userName: room.recordingLock.userName,
+        lockedSince: room.recordingLock.lockedAt
+      }
+    };
   }
 }

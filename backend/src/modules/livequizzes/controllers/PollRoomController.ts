@@ -260,5 +260,30 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
       await this.cleanupService.cleanup(tempPaths);
     }
   }
+
+   // Recording lock endpoints
+  @Post('/:code/recording/start')
+  async startRecording(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string; userName?: string }
+  ) {
+    const result = await this.roomService.acquireRecordingLock(roomCode, body.userId, body.userName);
+    return result;
+  }
+
+    @Post('/:code/recording/stop')
+  async stopRecording(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string }
+  ) {
+    const result = await this.roomService.releaseRecordingLock(roomCode, body.userId);
+    return result;
+  }
+
+  @Get('/:code/recording/status')
+  async getRecordingStatus(@Param('code') roomCode: string) {
+    const result = await this.roomService.getRecordingLockStatus(roomCode);
+    return result;
+  }
   
 }

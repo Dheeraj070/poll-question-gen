@@ -16,6 +16,16 @@ const PollSchema = new mongoose.Schema({
   answers: [AnswerSchema]
 });
 
+const RecordingLockSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    userName: { type: String },
+    lockedAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date }
+  },
+  { _id: false }
+);
+
 const RoomSchema = new mongoose.Schema({
   roomCode: { type: String, required: true, unique: true },
   name: { type: String, required: true },
@@ -25,7 +35,8 @@ const RoomSchema = new mongoose.Schema({
   endedAt: { type: Date }, 
   status: { type: String, enum: ['active', 'ended'], default: 'active' },
   polls: [PollSchema],
-  students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  recordingLock: RecordingLockSchema
 });
 
 RoomSchema.index({ teacherId: 1 });
