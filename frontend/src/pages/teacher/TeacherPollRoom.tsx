@@ -221,6 +221,8 @@ export default function TeacherPollRoom() {
       currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
     }>({ isLocked: false });
     const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const [micLockAlert, setMicLockAlert] = useState<string | null>(null);
+
 
   // UI state for queued question viewer shown after mic stops
   const [_showQueuedViewer, setShowQueuedViewer] = useState(false);
@@ -632,10 +634,13 @@ export default function TeacherPollRoom() {
 
          // Check if someone else is recording
                 if (recordingLockStatus.isLocked && recordingLockStatus.currentRecorder?.userId !== user?.uid) {
-                  toast.error(`${recordingLockStatus.currentRecorder?.userName || 'Another user'} is already recording`);
+                  const msg = `${recordingLockStatus.currentRecorder?.userName || "Another user"} is already using the mic`;
+                  setMicLockAlert(msg); 
+                  toast.error(msg);
                   return;
                 }
         // Try to acquire recording lock before starting
+                setMicLockAlert(null);
                 if (user?.uid) {
                   const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
                     userId: user.uid,
@@ -2271,6 +2276,27 @@ export default function TeacherPollRoom() {
                             <CardContent className="space-y-6">
 
                               <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
+                                {micLockAlert && (
+  <div
+    role="alert"
+    className="w-full max-w-xl mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+  >
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="h-4 w-4 mt-0.5" />
+        <p className="text-sm">{micLockAlert}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setMicLockAlert(null)}
+        className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+)}
+
                                 <Button
                                   onClick={() => handleRecordingToggle()}
                                   size="lg"
