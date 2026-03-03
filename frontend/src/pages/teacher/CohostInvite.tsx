@@ -19,8 +19,13 @@ const CohostInvite = () => {
             let { roomId, message } = response.data;
             toast.success(message ?? 'joined as cohost successfully')
             navigate({ to: `/teacher/pollroom/${roomId}` });
-        } catch (error) {
+        } catch (error:any) {
             console.error("Error joining as co-host:", error);
+            if (error.response?.data?.message === "jwt expired") {
+                toast.error("Invite link has expired.");
+            } else {
+                toast.error("Failed to join as co-host. Please try again.");
+            }
         }
 
         
