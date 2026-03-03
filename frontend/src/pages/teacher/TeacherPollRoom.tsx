@@ -336,9 +336,9 @@ export default function TeacherPollRoom() {
       socket.on('room-control-updated', (data) => {
         setRoomControlMode(data.mode);
         if (data.mode === 'mic-disabled') {
-           setIsRecording(false);
-           setIsListening(false);
-           setIsLiveRecordingActive(false);
+          setIsRecording(false);
+          setIsListening(false);
+          setIsLiveRecordingActive(false);
         }
       });
 
@@ -1578,6 +1578,17 @@ export default function TeacherPollRoom() {
     });
 
   };
+
+  const handleControlModeChange = (newMode: 'full' | 'mic-disabled' | 'poll-disabled') => {
+    setRoomControlMode(newMode);
+    socket.emit('update-room-control', { roomCode, mode: newMode });
+    toast.success(
+      newMode === 'full' ? 'All features enabled' :
+        newMode === 'mic-disabled' ? 'Mic access restricted' :
+          'Poll creation restricted'
+    );
+  };
+
   const handleLaunchPoll = async () => {
     const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
@@ -1765,7 +1776,7 @@ export default function TeacherPollRoom() {
                   variant={showPreview ? "default" : "outline"}
                   onClick={handleGeneratedQuestionClick}
                   className="mr-2"
-                  disabled={!generatedQuestions.length}
+                  disabled={!generatedQuestions.length || roomControlMode === 'poll-disabled'}
                 >
                   <Wand2 className="w-4 h-4 mr-2" />
                   {showPreview ? 'Generated Questions' : 'Generated Questions'}
@@ -1774,6 +1785,7 @@ export default function TeacherPollRoom() {
                   variant={showPollModal ? "default" : "outline"}
                   onClick={handleCreateManualPoll}
                   className="mr-2"
+                  disabled={roomControlMode === 'poll-disabled'}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Live Poll
@@ -1785,12 +1797,34 @@ export default function TeacherPollRoom() {
                   <BarChart2 className="w-4 h-4 mr-2" />
                   Poll Results
                 </Button>
+
+                {/* Dropdown Poll Results ki side mein aur Dark Mode Fixed */}
+                <div className="ml-2 border-l border-gray-300 dark:border-gray-700 pl-4">
+                  <Select value={roomControlMode} onValueChange={handleControlModeChange}>
+                    <SelectTrigger className="w-[160px] h-9 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-purple-500" />
+                        <span className="text-sm truncate">
+                          {roomControlMode === 'full' && "Full Access"}
+                          {roomControlMode === 'mic-disabled' && "Mic Disabled"}
+                          {roomControlMode === 'poll-disabled' && "Polls Disabled"}
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                      <SelectItem value="full" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Everything Working</SelectItem>
+                      <SelectItem value="mic-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Mic Only</SelectItem>
+                      <SelectItem value="poll-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Create Poll</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <div className="hidden md:block">
                   <ThemeToggle />
                 </div>
+
                 <Button
                   onClick={() => copyToClipboard(roomCode)}
                   variant="outline"
@@ -1882,6 +1916,7 @@ export default function TeacherPollRoom() {
                       setIsMobileMenuOpen(false);
                     }}
                     className="w-full justify-start"
+                    disabled={roomControlMode === 'poll-disabled'}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Live Poll
@@ -2198,6 +2233,7 @@ export default function TeacherPollRoom() {
                               <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
                                 <Button
                                   onClick={() => handleRecordingToggle()}
+                                  disabled={roomControlMode === 'mic-disabled'}
                                   size="lg"
                                   variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
                                   className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
@@ -2613,7 +2649,8 @@ export default function TeacherPollRoom() {
                                     isRecording ||
                                     isListening ||
                                     isGenerating ||
-                                    (isGenerateClicked && transcriber.output?.isBusy)
+                                    (isGenerateClicked && transcriber.output?.isBusy) ||
+                                    roomControlMode === 'poll-disabled'
                                   }
                                   className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600 px-5 sm:px-7 py-2 sm:py-3 rounded-md flex items-center gap-2 text-sm sm:text-base transition-all"
                                 >
@@ -3172,7 +3209,7 @@ export default function TeacherPollRoom() {
                       <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
                         <Button
                           onClick={createPoll}
-                          disabled={!question || options.filter((opt) => opt.trim()).length < 2}
+                          disabled={!question || options.filter((opt) => opt.trim()).length < 2 || roomControlMode === 'poll-disabled'}
                           className="bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600 flex-1 text-sm"
                           aria-disabled={!question || options.filter((opt) => opt.trim()).length < 2}
                         >
