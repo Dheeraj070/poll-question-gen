@@ -413,6 +413,9 @@ export default function TeacherPollRoom() {
     }
   }, [livePollResults, currentQuestionIndex, generatedQuestions]);
 
+  const isMicLockedByOtherUser =
+  recordingLockStatus.isLocked &&
+  recordingLockStatus.currentRecorder?.userId !== user?.uid;
   const displayTranscript =
     liveTranscript + (interimTranscript ? " " + interimTranscript : "");
 
@@ -632,15 +635,12 @@ export default function TeacherPollRoom() {
     } else {
       try {
 
-         // Check if someone else is recording
-                if (recordingLockStatus.isLocked && recordingLockStatus.currentRecorder?.userId !== user?.uid) {
-                  const msg = `${recordingLockStatus.currentRecorder?.userName || "Another user"} is already using the mic`;
-                  setMicLockAlert(msg); 
-                  toast.error(msg);
-                  return;
-                }
+        // Check if someone else is recording
+        if (isMicLockedByOtherUser) {
+          toast.error(`${recordingLockStatus.currentRecorder?.userName || "Another user"} is already using the mic`);
+          return;
+        }
         // Try to acquire recording lock before starting
-                setMicLockAlert(null);
                 if (user?.uid) {
                   const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
                     userId: user.uid,
@@ -782,6 +782,7 @@ export default function TeacherPollRoom() {
       };
   
       // Poll every 2 seconds
+      pollRecordingStatus();
       recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
   
       // Listen for recording started event
@@ -2276,35 +2277,28 @@ export default function TeacherPollRoom() {
                             <CardContent className="space-y-6">
 
                               <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
-                                {micLockAlert && (
-  <div
-    role="alert"
-    className="w-full max-w-xl mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 mt-0.5" />
-        <p className="text-sm">{micLockAlert}</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => setMicLockAlert(null)}
-        className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    </div>
-  </div>
-)}
+                                {isMicLockedByOtherUser && (
+                                  <div role="alert" className="w-full max-w-xl mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                                    <div className="flex items-start gap-2">
+                                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                      <p className="text-sm">
+                                        {recordingLockStatus.currentRecorder?.userName || "Another user"} is currently using the mic. Recording will be available once they stop.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
 
                                 <Button
                                   onClick={() => handleRecordingToggle()}
                                   size="lg"
+                                  disabled={isMicLockedByOtherUser}
                                   variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
                                   className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
                               bg-gradient-to-r from-purple-500 to-blue-500 text-white 
                               hover:from-purple-600 hover:to-blue-600 shadow-lg 
-                              ${(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) && "animate-pulse"} transition-all`}
+                              ${(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) && "animate-pulse"} transition-all
+                              ${isMicLockedByOtherUser ? "opacity-50 cursor-not-allowed hover:from-purple-500 hover:to-blue-500" : ""}
+                              `}
                                 >
                                   {(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                                 </Button>
@@ -2711,6 +2705,7 @@ export default function TeacherPollRoom() {
                                 <Button
                                   onClick={handleGenerateClick}
                                   disabled={
+                                    isMicLockedByOtherUser ||
                                     isRecording ||
                                     isListening ||
                                     isGenerating ||
