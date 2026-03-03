@@ -101,6 +101,54 @@ export default function TeacherPollRoom() {
   const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
   const [isCreating, setIsCreating] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
+  const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState<number | null>(null);
+  const INVITE_TTL_MS = 30 * 60 * 1000;
+  const inviteStorageKey = `cohost-invite-link:${roomCode}:${currentUser?.uid ?? "anonymous"}`;
+
+  const clearInviteLink = useCallback(() => {
+  setInviteLink('');
+  setInviteLinkExpiresAt(null);
+  localStorage.removeItem(inviteStorageKey);
+}, [inviteStorageKey]);
+
+useEffect(() => {
+  if (!currentUser?.uid || !roomCode) return;
+
+  const raw = localStorage.getItem(inviteStorageKey);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
+    if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+      localStorage.removeItem(inviteStorageKey);
+      return;
+    }
+
+    setInviteLink(parsed.inviteLink);
+    setInviteLinkExpiresAt(parsed.expiresAt);
+  } catch {
+    localStorage.removeItem(inviteStorageKey);
+  }
+}, [currentUser?.uid, roomCode, inviteStorageKey]);
+
+  useEffect(() => {
+  if (!inviteLink || !inviteLinkExpiresAt) return;
+
+  const remainingMs = inviteLinkExpiresAt - Date.now();
+  if (remainingMs <= 0) {
+    clearInviteLink();
+    return;
+  }
+
+  localStorage.setItem(
+    inviteStorageKey,
+    JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
+  );
+
+  const timeout = window.setTimeout(clearInviteLink, remainingMs);
+  return () => window.clearTimeout(timeout);
+}, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
+
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
 
@@ -156,6 +204,7 @@ export default function TeacherPollRoom() {
       });
       toast.success("Invite Link created successfully!");
       setInviteLink(res.data.inviteLink);
+      setInviteLinkExpiresAt(Date.now() + INVITE_TTL_MS);
     } catch (error) {
       console.error("Error creating Invite link:", error);
       toast.error("Failed to create Invite Link");
