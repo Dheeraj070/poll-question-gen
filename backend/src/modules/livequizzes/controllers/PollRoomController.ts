@@ -46,7 +46,7 @@ declare module 'express-serve-static-core' {
 const upload = multer({ dest: 'uploads/' });
 
 @injectable()
-@OpenAPI({tags: ['Rooms'],})
+@OpenAPI({ tags: ['Rooms'], })
 @JsonController('/livequizzes/rooms')
 export class PollRoomController {
   constructor(
@@ -80,7 +80,7 @@ export class PollRoomController {
       return { success: false, message: 'Room is ended' };
     }
     return { success: true, room };  // return room data
-  }  
+  }
 
   // 🔹 Create Poll in Room
   //@Authorized(['teacher','admin'])
@@ -135,7 +135,7 @@ export class PollRoomController {
   ) {
     await this.pollService.submitAnswer(roomCode, body.pollId, body.userId, body.answerIndex);
     const updatedResults = await this.pollService.getPollResults(roomCode);
-    pollSocket.emitToRoom(roomCode,'poll-results-updated', updatedResults);
+    pollSocket.emitToRoom(roomCode, 'poll-results-updated', updatedResults);
     return { success: true };
   }
 
@@ -156,41 +156,41 @@ export class PollRoomController {
     return { success: true, message: 'Room ended successfully' };
   }
 
-@Get('/youtube-audio')
-@HttpCode(200)
-async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
-  const youtubeUrl = req.query.url as string;
-  const tempPaths: string[] = [];
-  try {
-    if (!youtubeUrl) {
-      return res.status(400).json({ message: 'Missing YouTube URL.' });
+  @Get('/youtube-audio')
+  @HttpCode(200)
+  async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
+    const youtubeUrl = req.query.url as string;
+    const tempPaths: string[] = [];
+    try {
+      if (!youtubeUrl) {
+        return res.status(400).json({ message: 'Missing YouTube URL.' });
+      }
+      console.log('Received YouTube URL:', youtubeUrl);
+      // 1. Download the YouTube video (MP4 or similar)
+      const videoPath = await this.videoService.downloadVideo(youtubeUrl);
+      tempPaths.push(videoPath);
+
+      // 2. Extract audio from video (MP3 or WAV)
+      const audioPath = await this.audioService.extractAudio(videoPath);
+      tempPaths.push(audioPath);
+
+      // 3. Stream audio file to the client
+      const mimeType = mime.lookup(audioPath) || 'audio/mpeg';
+      const audioBuffer = await fsp.readFile(audioPath);
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', audioBuffer.length);
+      res.setHeader('Content-Disposition', 'inline');
+
+      console.log("🧪 Audio path:", audioPath);
+      console.log("📦 Audio buffer size:", audioBuffer.length); // << This will likely be 44
+      return res.send(audioBuffer);
+    } catch (error: any) {
+      console.error('Error in /youtube-audio:', error);
+      await this.cleanupService.cleanup(tempPaths);
+      return res.status(500).json({ message: error.message || 'Internal Server Error' });
     }
-    console.log('Received YouTube URL:', youtubeUrl);
-    // 1. Download the YouTube video (MP4 or similar)
-    const videoPath = await this.videoService.downloadVideo(youtubeUrl);
-    tempPaths.push(videoPath);
-
-    // 2. Extract audio from video (MP3 or WAV)
-    const audioPath = await this.audioService.extractAudio(videoPath);
-    tempPaths.push(audioPath);
-
-    // 3. Stream audio file to the client
-    const mimeType = mime.lookup(audioPath) || 'audio/mpeg';
-    const audioBuffer = await fsp.readFile(audioPath); 
-
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', audioBuffer.length);
-    res.setHeader('Content-Disposition', 'inline');
-
-    console.log("🧪 Audio path:", audioPath);
-    console.log("📦 Audio buffer size:", audioBuffer.length); // << This will likely be 44
-    return res.send(audioBuffer);
-  } catch (error: any) {
-    console.error('Error in /youtube-audio:', error);
-    await this.cleanupService.cleanup(tempPaths);
-    return res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
-}
 
   // 🔹 AI Question Generation from transcript or YouTube
   //@Authorized(['teacher'])
@@ -238,7 +238,7 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
       console.log('Using questionSpec:', safeSpec);
       console.log('[generateQuestions] Transcript length:', transcript.length);
       console.log('[generateQuestions] Transcript preview:', segments);
-     
+
       console.log('[generateQuestions] Number of questions to generate:', numQuestions);
       const generatedQuestions = await this.aiContentService.generateQuestions({
         segments,
@@ -262,7 +262,7 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
     }
   }
 
-   // Recording lock endpoints
+  // Recording lock endpoints
   @Post('/:code/recording/start')
   async startRecording(
     @Param('code') roomCode: string,
@@ -272,7 +272,7 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
     return result;
   }
 
-    @Post('/:code/recording/stop')
+  @Post('/:code/recording/stop')
   async stopRecording(
     @Param('code') roomCode: string,
     @Body() body: { userId: string }
@@ -288,7 +288,7 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
   }
   //join as cohost
   @Post('/cohost')
-  async joinAsCohost( @Body() body: { token: string, userId:string }) {
+  async joinAsCohost(@Body() body: { token: string, userId: string }) {
     const resp = await this.roomService.joinAsCohost(body.token, body.userId);
     return { success: true, ...resp };
   }
@@ -304,24 +304,22 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
   //get cohosted rooms
   @Get('/cohost/:userId')
   async getCohostRooms(@Param('userId') userId: string) {
-    const resp= await this.roomService.getCohostedRooms(userId);
-    return {success:true,...resp}
+    const resp = await this.roomService.getCohostedRooms(userId);
+    return { success: true, ...resp }
   }
 
   //get rooms cohosts 
   @Get('/cohost/:host/:code')
   async getRoomCohosts(@Param('host') host: string, @Param('code') roomCode: string) {
-    const resp= await this.roomService.getRoomCohosts(host,roomCode);
-    return {success:true,activeCohosts:resp}
+    const resp = await this.roomService.getRoomCohosts(host, roomCode);
+    return { success: true, activeCohosts: resp }
   }
 
   //remove cohost
   @Patch('/cohost/:code')
   async removeCohost(@Param('code') roomCode: string, @Body() body: { userId: string, teacherId: string }) {
-    const resp= await this.roomService.removeCohost(roomCode,body.userId,body.teacherId);
-    return {success:true,...resp}
+    const resp = await this.roomService.removeCohost(roomCode, body.userId, body.teacherId);
+    return { success: true, ...resp }
   }
 
-  
-  
 }
