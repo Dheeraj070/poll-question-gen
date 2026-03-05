@@ -16,6 +16,56 @@ const PollSchema = new mongoose.Schema({
   answers: [AnswerSchema]
 });
 
+const CoHostSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    addedBy: { type: String, required: true },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true
+    }
+  },
+  { _id: false }
+);
+
+const CoHostInviteSchema = new mongoose.Schema(
+  {
+    inviteId: {
+      type: String   // JWT jti
+    },
+
+    expiresAt: {
+      type: Date
+    },
+
+    isActive: {
+      type: Boolean,
+      default: false
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  { _id: false }
+);
+
+const RecordingLockSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    userName: { type: String },
+    lockedAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date }
+  },
+  {_id: false}
+);
+
 const RoomSchema = new mongoose.Schema({
   roomCode: { type: String, required: true, unique: true },
   name: { type: String, required: true },
@@ -25,7 +75,10 @@ const RoomSchema = new mongoose.Schema({
   endedAt: { type: Date }, 
   status: { type: String, enum: ['active', 'ended'], default: 'active' },
   polls: [PollSchema],
-  students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  recordingLock: RecordingLockSchema,
+  coHosts: [CoHostSchema],
+  coHostInvite: CoHostInviteSchema
 });
 
 RoomSchema.index({ teacherId: 1 });

@@ -11,6 +11,7 @@ import {
   NotFoundError,
   Delete,
   BadRequestError,
+  Patch,
 } from 'routing-controllers';
 import { Request, Response } from 'express';
 import multer from 'multer';
@@ -260,5 +261,67 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
       await this.cleanupService.cleanup(tempPaths);
     }
   }
+
+   // Recording lock endpoints
+  @Post('/:code/recording/start')
+  async startRecording(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string; userName?: string }
+  ) {
+    const result = await this.roomService.acquireRecordingLock(roomCode, body.userId, body.userName);
+    return result;
+  }
+
+    @Post('/:code/recording/stop')
+  async stopRecording(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string }
+  ) {
+    const result = await this.roomService.releaseRecordingLock(roomCode, body.userId);
+    return result;
+  }
+
+  @Get('/:code/recording/status')
+  async getRecordingStatus(@Param('code') roomCode: string) {
+    const result = await this.roomService.getRecordingLockStatus(roomCode);
+    return result;
+  }
+  //join as cohost
+  @Post('/cohost')
+  async joinAsCohost( @Body() body: { token: string, userId:string }) {
+    const resp = await this.roomService.joinAsCohost(body.token, body.userId);
+    return { success: true, ...resp };
+  }
+
+  //generate cohost invite link
+  @Post('/cohost/:code')
+  async generateCohostInvite(@Param('code') roomCode: string, @Body() body: { userId: string }) {
+    console.log('roomCode:', roomCode);
+    const resp = await this.roomService.generateCohostInvite(roomCode, body.userId);
+    return { success: true, inviteLink: resp };
+  }
+
+  //get cohosted rooms
+  @Get('/cohost/:userId')
+  async getCohostRooms(@Param('userId') userId: string) {
+    const resp= await this.roomService.getCohostedRooms(userId);
+    return {success:true,...resp}
+  }
+
+  //get rooms cohosts 
+  @Get('/cohost/:host/:code')
+  async getRoomCohosts(@Param('host') host: string, @Param('code') roomCode: string) {
+    const resp= await this.roomService.getRoomCohosts(host,roomCode);
+    return {success:true,activeCohosts:resp}
+  }
+
+  //remove cohost
+  @Patch('/cohost/:code')
+  async removeCohost(@Param('code') roomCode: string, @Body() body: { userId: string, teacherId: string }) {
+    const resp= await this.roomService.removeCohost(roomCode,body.userId,body.teacherId);
+    return {success:true,...resp}
+  }
+
+  
   
 }

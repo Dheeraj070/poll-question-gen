@@ -24,6 +24,7 @@ import StudentPollRoom from '@/pages/student/StudentPollRoom'
 import TeacherDashboard from '@/pages/teacher/TeacherDashboard'
 import StudentDashboard from '@/pages/student/StudentDashboard'
 import StudentProfile from '@/pages/student/StudentProfile'
+import TeacherCohostedRooms from '@/pages/teacher/TeacherCohostedRooms'
 import TeacherProfile from '@/pages/teacher/TeacherProfile'
 import TeacherSettings from '@/pages/teacher/TeacherSettings'
 import StudentSettings from '@/pages/student/StudentSettings'
@@ -32,6 +33,7 @@ import TeacherPollAnalysis from '@/pages/teacher/TeacherPollAnalysis'
 import StudentPollAnalysis from '@/pages/student/StudentPollAnalysis'
 import MyPolls from '@/pages/student/MyPolls'
 import RoleSelectionPage from '@/pages/roleselect'
+import CohostInvite from '@/pages/teacher/CohostInvite'
 
 // Root route with error and notFound handling
 const rootRoute = createRootRoute({
@@ -201,11 +203,25 @@ const teacherManageRoomsRoute = createRoute({
   component: ManageRoom,
 }); 
 
+// Teacher cohosted rooms route
+const teacherCohostedRoomsRoute = createRoute({
+  getParentRoute: () => teacherLayoutRoute,
+  path: '/cohosted-rooms',
+  component: TeacherCohostedRooms,
+});
+
 // Teacher poll analysis route
 const teacherPollAnalysisRoute = createRoute({
   getParentRoute: () => teacherLayoutRoute,
   path: '/manage-rooms/pollanalysis/$roomId',
   component: TeacherPollAnalysis,
+});
+
+// Cohost invite route
+const cohostInviteRoute = createRoute({
+  getParentRoute: () => teacherLayoutRoute,
+  path: '/cohost-invite/$token',
+  component: CohostInvite,
 });
 
 // Teacher poll room route
@@ -323,7 +339,9 @@ const routeTree = rootRoute.addChildren([
     teacherProfileRoute,
     teacherSettingsRoute,
     teacherManageRoomsRoute,
+    teacherCohostedRoomsRoute,
     teacherPollAnalysisRoute,
+    cohostInviteRoute,
   ]),
   studentLayoutRoute.addChildren([
     studentPollRoomRoute,

@@ -4,6 +4,8 @@ import Dashboard from "@/pages/teacher/TeacherDashboard";
 // import GenAIHomePage from "@/pages/teacher/genai-home";
 import PollRoomPage from "@/pages/teacher/TeacherPollRoom";
 import CreateRoomPage from "@/pages/teacher/CreatePollRoom";
+import CohostInvite from "@/pages/teacher/CohostInvite";
+import TeacherCohostedRooms from "@/pages/teacher/TeacherCohostedRooms";
 
 const teacherRoutes: RouteObject = {
   path: "/teacher",
@@ -26,9 +28,17 @@ const teacherRoutes: RouteObject = {
       element: <CreateRoomPage />,
     },
     {
+      path: "cohosted-rooms",
+      element: <TeacherCohostedRooms />,
+    },
+    {
       path: 'pollroom/$code',
       element: <PollRoomPage />
     },
+    {
+      path: 'cohost-invite/:token',
+      element: <CohostInvite />
+    }
   ],
 };
 

@@ -1,9 +1,12 @@
 import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
-import type { Room as RoomType, Poll, PollAnswer } from '../interfaces/PollRoom.js';
+import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom, ActiveCohost } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
-import {ObjectId} from 'mongodb'
-import { NotFoundError } from 'routing-controllers';
+import {ObjectId} from 'mongodb';
+import { HttpError, NotFoundError } from 'routing-controllers';
+import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
+import { pollSocket } from '../utils/PollSocket.js';
 
 @injectable()
 export class RoomService {
@@ -27,7 +30,7 @@ export class RoomService {
   }
 
   async getRoomByCode(code: string): Promise<RoomType | null> {
-    return await Room.findOne({ roomCode: code }).populate('students','firstName email').lean()
+    return await Room.findOne({ roomCode: code }).populate('students', 'firstName email').lean()
   }
 
   async getRoomsByTeacher(teacherId: string, status?: 'active' | 'ended'): Promise<RoomType[]> {
@@ -44,7 +47,7 @@ export class RoomService {
       'uid name'
     ).lean();
   }
-  
+
   async getPollAnalysis(roomCode: string) {
     // 1️⃣ Find the room by code
     const room = await this.roomModel.findOne({ roomCode }).lean();
@@ -93,21 +96,21 @@ export class RoomService {
     // 4️⃣ Convert map to array and merge names
     const participants = Array.from(participantsMap.values()).map((p) => {
       const user = users.find(u => u.firebaseUID === p.userId);
-      
+
       // Format time taken - convert seconds to minutes and seconds
       let timeDisplay = "N/A";
       if (p.timeTaken > 0) {
         const totalSeconds = Math.round(p.timeTaken);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        
+
         if (minutes > 0) {
           timeDisplay = `${minutes}m ${seconds}s`;
         } else {
           timeDisplay = `${seconds}s`;
         }
       }
-      
+
       return {
         name: user?.firstName ?? 'Anonymous',
         score: p.score,
@@ -139,7 +142,7 @@ export class RoomService {
       questions,
     };
   }
-  
+
   async getRoomsByTeacherAndStatus(teacherId: string, status: 'active' | 'ended'): Promise<RoomType[]> {
     return await Room.find({ teacherId, status }).lean();
   }
@@ -156,6 +159,9 @@ export class RoomService {
 
   async endRoom(code: string): Promise<boolean> {
     const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
+    pollSocket?.emitToRoom( code,'room-ended', {
+      message:'Room has ended'
+    });
     return !!updated;
   }
 
@@ -202,34 +208,361 @@ export class RoomService {
   }
 
 
-  async enrollStudent(userId:string,roomCode:string){
-    const room = await Room.findOne({roomCode})
-    if(!room){
+  async enrollStudent(userId: string, roomCode: string) {
+    const room = await Room.findOne({ roomCode })
+    if (!room) {
       throw new NotFoundError("Room is not found")
     }
-    const userObjectId=new ObjectId(userId)
+    const userObjectId = new ObjectId(userId)
     // const existingStudent = await Room.findOne({students:{$in:[userObjectId]}})
     const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
-    if(isAlreadyEnrolled){
+    if (isAlreadyEnrolled) {
       console.log("User Already enrolled in the course")
       return room
     }
-    const updatedRoom = await Room.findOneAndUpdate({roomCode},{$addToSet:{students:userObjectId}},{new:true})
+    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $addToSet: { students: userObjectId } }, { new: true })
     return updatedRoom
   }
 
-  async unEnrollStudent(userId:string,roomCode:string){
-    const room = await Room.findOne({roomCode})
-    if(!room){
+  async unEnrollStudent(userId: string, roomCode: string) {
+    const room = await Room.findOne({ roomCode })
+    if (!room) {
       throw new NotFoundError("Room is not found")
     }
-    const userObjectId=new ObjectId(userId)
+    const userObjectId = new ObjectId(userId)
     const isAlreadyEnrolled = room.students.some((id) => id.equals(userObjectId))
-    if(!isAlreadyEnrolled){
+    if (!isAlreadyEnrolled) {
       console.log("User Not enrolled in the course")
       return room
     }
-    const updatedRoom = await Room.findOneAndUpdate({roomCode},{$pull:{students:userObjectId}},{new:true})
+    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $pull: { students: userObjectId } }, { new: true })
     return updatedRoom
+  }
+
+    // Recording lock management
+  async acquireRecordingLock(
+    roomCode: string,
+    userId: string,
+    userName?: string
+  ): Promise<{ success: boolean; message: string; currentRecorder?: { userId: string; userName?: string } }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    // Check if recording lock exists and is still valid
+    if (room.recordingLock) {
+      const now = new Date();
+      // If lock hasn't expired and it's not the same user, deny access
+      if (room.recordingLock.expiresAt && room.recordingLock.expiresAt > now && room.recordingLock.userId !== userId) {
+        return {
+          success: false,
+          message: `Recording is in use by ${room.recordingLock.userName || 'another user'}`,
+          currentRecorder: {
+            userId: room.recordingLock.userId,
+            userName: room.recordingLock.userName
+          }
+        };
+      }
+    }
+    // Acquire the lock with 30 minute timeout
+    const lockExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    await Room.updateOne(
+      { roomCode },
+      {
+        recordingLock: {
+          userId,
+          userName,
+          lockedAt: new Date(),
+          expiresAt: lockExpiresAt
+        }
+      }
+    );
+
+    // Notify all users in the room that recording has started
+    pollSocket?.emitToRoom(roomCode, 'recording-started', {
+      userId,
+      userName
+    });
+
+    return {
+      success: true,
+      message: "Recording lock acquired"
+    };
+  }
+
+    async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    // Only allow the user who acquired the lock to release it
+    if (room.recordingLock && room.recordingLock.userId !== userId) {
+      throw new HttpError(403, "Only the user who started recording can stop it");
+    }
+
+    // Release the lock
+    await Room.updateOne(
+      { roomCode },
+      {
+        recordingLock: null
+      }
+    );
+
+    // Notify all users in the room that recording has stopped
+    pollSocket?.emitToRoom(roomCode, 'recording-stopped', {
+      userId
+    });
+
+    return {
+      success: true,
+      message: "Recording lock released"
+    };
+  }
+
+    async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
+
+    if (!room.recordingLock) {
+      return { isLocked: false };
+    }
+
+    const now = new Date();
+    if (room.recordingLock.expiresAt && room.recordingLock.expiresAt <= now) {
+      // Lock has expired, clear it
+      await Room.updateOne({ roomCode }, { recordingLock: null });
+      return { isLocked: false };
+    }
+
+    return {
+      isLocked: true,
+      currentRecorder: {
+        userId: room.recordingLock.userId,
+        userName: room.recordingLock.userName,
+        lockedSince: room.recordingLock.lockedAt
+      }
+    };
+  }
+
+   //generate cohost invite
+  async generateCohostInvite(roomCode: string, userId: string): Promise<string> {
+
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found")
+    }
+
+    if (room.teacherId.toString() !== userId) {
+      throw new HttpError(403, "Only host can generate invite")
+    }
+
+    const inviteId = uuidv4();
+
+    const token = jwt.sign(
+      {
+        roomId: room.roomCode,
+        jti: inviteId
+      },
+      process.env.COHOST_INVITE_SECRET,
+      { expiresIn: "30m" }
+    );
+
+    room.coHostInvite = {
+      createdAt: new Date(Date.now()),
+      inviteId,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      isActive: true
+    };
+
+    await room.save();
+
+    return `${process.env.APP_ORIGINS}/teacher/cohost-invite/${token}`
+
+  }
+
+  //join as cohost
+  async joinAsCohost(token: string, userId: string): Promise<{ message: string, roomId: string }> {
+
+    const decoded = jwt.verify(
+      token,
+      process.env.COHOST_INVITE_SECRET
+    ) as CohostJwtPayload;
+    const room = await Room.findOne({ roomCode: decoded.roomId });
+    if (!room || room.status !== "active") {
+      throw new HttpError(400, "Invalid room")
+    }
+    if (
+      !room.coHostInvite.isActive ||
+      room.coHostInvite.inviteId !== decoded.jti ||
+      room.coHostInvite.expiresAt < new Date()
+    ) {
+      throw new HttpError(400, "Invite invalid or expired")
+    }
+
+    const user = await UserModel.findOne({
+      firebaseUID:
+        userId
+    });
+    if (user.role !== "teacher") {
+      throw new HttpError(403, "Only teachers allowed")
+    }
+
+    const already = room.coHosts.find(
+      c => c.userId.toString() === userId && c.isActive
+    );
+
+    if (!already) {
+      room.coHosts.push({
+        userId,
+        addedBy: room.teacherId
+      });
+    }
+
+    await room.save();
+
+    // Get updated cohost list with full details
+    const activeCohosts = await this.getRoomCohosts(room.teacherId, decoded.roomId);
+    pollSocket?.emitToRoom(decoded.roomId, 'cohost-joined', {
+      activeCohosts: activeCohosts
+    });
+
+    return { message: "Joined as cohost", roomId: room.roomCode }
+
+  }
+
+  //get cohost rooms
+  async getCohostedRooms(userId: string): Promise<GetCohostRoom> {
+
+    const rooms = await Room.aggregate([
+      {
+        $match: {
+          status: "active",
+          coHosts: {
+            $elemMatch: {
+              userId: userId,
+              isActive: true
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: { teacherId: "$teacherId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$firebaseUID", "$$teacherId"] }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                firstName: 1,
+                lastName: 1
+              }
+            }
+          ],
+          as: "teacher"
+        }
+      },
+      {
+        $unwind: {
+          path: "$teacher",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
+    return { count: rooms.length, rooms }
+  }
+
+  //get room cohost
+  async getRoomCohosts(host: string, roomCode: string): Promise<ActiveCohost[]> {
+
+    const coHosts = await Room.aggregate<ActiveCohost>([
+      {
+        $match: {
+          roomCode: roomCode,
+          teacherId: host,
+        }
+      },
+      {
+        $unwind: "$coHosts"
+      },
+      {
+        $match: {
+          "coHosts.isActive": true
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          let: { uid: "$coHosts.userId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$firebaseUID", "$$uid"] }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                firebaseUID: 1,
+                firstName: 1,
+                lastName: 1,
+                email: 1
+              }
+            }
+          ],
+          as: "cohostUser"
+        }
+      },
+      {
+        $unwind: "$cohostUser"
+      },
+      {
+        $project: {
+          _id: 0,
+          userId: "$cohostUser.firebaseUID",
+          firstName: "$cohostUser.firstName",
+          lastName: "$cohostUser.lastName",
+          email: "$cohostUser.email",
+          addedAt: "$coHosts.addedAt"
+        }
+      }
+    ]);
+    return coHosts
+  }
+
+  //remove cohost
+  async removeCohost(roomCode: string, userId: string, teacherId: string): Promise<{ message: string }> {
+
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found")
+    }
+    if (room.teacherId !== teacherId) {
+      throw new HttpError(400, "Invalid room")
+    }
+    room.coHosts.forEach(c => {
+      if (c.userId === userId) {
+        c.isActive = false;
+      }
+    });
+    await room.save();
+    // Get updated cohost list
+    const activeCohosts = await this.getRoomCohosts(teacherId, roomCode);
+    pollSocket?.emitToRoom(roomCode, 'cohost-removed', {
+      removedUserId: userId,
+      activeCohosts: activeCohosts
+    });
+    return { message: 'coHost removed successfully' }
   }
 }
