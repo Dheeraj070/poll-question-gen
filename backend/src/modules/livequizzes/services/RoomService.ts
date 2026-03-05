@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
 import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom, ActiveCohost } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
-import {ObjectId} from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { HttpError, NotFoundError } from 'routing-controllers';
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
@@ -159,8 +159,8 @@ export class RoomService {
 
   async endRoom(code: string): Promise<boolean> {
     const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
-    pollSocket?.emitToRoom( code,'room-ended', {
-      message:'Room has ended'
+    pollSocket?.emitToRoom(code, 'room-ended', {
+      message: 'Room has ended'
     });
     return !!updated;
   }
@@ -239,7 +239,7 @@ export class RoomService {
     return updatedRoom
   }
 
-    // Recording lock management
+  // Recording lock management
   async acquireRecordingLock(
     roomCode: string,
     userId: string,
@@ -291,7 +291,7 @@ export class RoomService {
     };
   }
 
-    async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
+  async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -321,7 +321,7 @@ export class RoomService {
     };
   }
 
-    async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
+  async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -348,7 +348,7 @@ export class RoomService {
     };
   }
 
-   //generate cohost invite
+  //generate cohost invite
   async generateCohostInvite(roomCode: string, userId: string): Promise<string> {
 
     const room = await Room.findOne({ roomCode });
