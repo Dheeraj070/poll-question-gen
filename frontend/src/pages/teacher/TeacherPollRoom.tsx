@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Check, Mic, ChevronUp, MicOff, Volume2, Upload, Trash2, Languages, Settings, ClipboardList, BarChart2, Clock, Users2, Plus, X, ChevronLeft, ChevronRight, Menu, ArrowLeft, UserPlus, Copy } from 'lucide-react';
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
+import { useAuth } from "@/lib/hooks/use-auth";
+
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text).then(() => {
@@ -90,12 +92,126 @@ type GeneratedQuestion = {
 };
 
 export default function TeacherPollRoom() {
-  const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
-
+  const { user } = useAuth();
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
   const roomCode: string = params.code as string;
-  const { user } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
+
+  const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
+  const [isCreating, setIsCreating] = useState(false)
+  const [inviteLink, setInviteLink] = useState('')
+  const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState<number | null>(null);
+  const INVITE_TTL_MS = 30 * 60 * 1000;
+  const inviteStorageKey = `cohost-invite-link:${roomCode}:${currentUser?.uid ?? "anonymous"}`;
+
+  const clearInviteLink = useCallback(() => {
+  setInviteLink('');
+  setInviteLinkExpiresAt(null);
+  localStorage.removeItem(inviteStorageKey);
+}, [inviteStorageKey]);
+
+useEffect(() => {
+  if (!currentUser?.uid || !roomCode) return;
+
+  const raw = localStorage.getItem(inviteStorageKey);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
+    if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+      localStorage.removeItem(inviteStorageKey);
+      return;
+    }
+
+    setInviteLink(parsed.inviteLink);
+    setInviteLinkExpiresAt(parsed.expiresAt);
+  } catch {
+    localStorage.removeItem(inviteStorageKey);
+  }
+}, [currentUser?.uid, roomCode, inviteStorageKey]);
+
+  useEffect(() => {
+  if (!inviteLink || !inviteLinkExpiresAt) return;
+
+  const remainingMs = inviteLinkExpiresAt - Date.now();
+  if (remainingMs <= 0) {
+    clearInviteLink();
+    return;
+  }
+
+  localStorage.setItem(
+    inviteStorageKey,
+    JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
+  );
+
+  const timeout = window.setTimeout(clearInviteLink, remainingMs);
+  return () => window.clearTimeout(timeout);
+}, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
+
+
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
+
+  // Real Cohosts State
+  const [cohosts, setCohosts] = useState<any[]>([]);
+
+  // 1. Fetch Cohosts API 
+  const fetchCohosts = useCallback(async () => {
+    try {
+      if (!currentUser?.uid || !roomCode) return;
+      const res = await api.get(`/livequizzes/rooms/cohost/${currentUser.uid}/${roomCode}`);
+      setCohosts(res.data.activeCohosts || []);
+    } catch (error) {
+      console.error("Error fetching cohosts:", error);
+    }
+  }, [currentUser?.uid, roomCode]);
+
+  useEffect(() => {
+    fetchCohosts();
+  }, [fetchCohosts]);
+
+  // 2. Remove Cohost API 
+  const handleRemoveCohost = async (cohostId: string) => {
+    if (!window.confirm("Are you sure you want to remove this co-host?")) return;
+    try {
+      await api.patch(`/livequizzes/rooms/cohost/${roomCode}`, {
+        teacherId: currentUser?.uid,
+        userId: cohostId
+      });
+      toast.success("Co-host removed successfully");
+    } catch (error) {
+      console.error("Error removing cohost:", error);
+      toast.error("Failed to remove co-host");
+    }
+  };
+
+  // Store the room creator's ID for role-based access
+  const [hostId, setHostId] = useState<string | null>(null);
+  const isHost = currentUser?.uid === hostId;
+
+  //handle invite cohost
+  const handleInviteCohost = async () => {
+
+    setIsCreating(true);
+    try {
+      if (!currentUser?.uid) {
+        toast.error("Authentication required to create assessments");
+        return;
+      }
+
+      const res = await api.post(`/livequizzes/rooms/cohost/${roomCode}`, {
+        userId: currentUser.uid
+      });
+      toast.success("Invite Link created successfully!");
+      setInviteLink(res.data.inviteLink);
+      setInviteLinkExpiresAt(Date.now() + INVITE_TTL_MS);
+    } catch (error) {
+      console.error("Error creating Invite link:", error);
+      toast.error("Failed to create Invite Link");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -324,15 +440,46 @@ export default function TeacherPollRoom() {
       socket.off('connect_error');
       socket.off('error');
       socket.off('poll-results-updated');
+      socket.off('cohost-joined');
+      socket.off('cohost-removed');
+      socket.off('room-ended');
 
       // Set up new listeners
       socket.on('live-poll-results', handlePollUpdate);
       socket.on('poll-results-updated', (data) => {
         setPollResults(data)
       });
+
+      socket.on('cohost-joined', (data) => {
+        setCohosts(data.activeCohosts || []);
+        toast.success('A co-host has joined the room');
+      });
+      socket.on('cohost-removed', (data) => {
+        setCohosts(data.activeCohosts || []);
+        if (currentUser?.uid === data.removedUserId) {
+          toast.error('You have been removed as co-host');
+          navigate({ to: '/teacher/cohosted-rooms' });
+          return;
+        }
+        toast.info('A co-host was removed from the room');
+      });
+
+      socket.on('room-ended', (data) => {
+        setShowEndRoomConfirm(false);
+        setIsEndingRoom(false);
+        toast.info(data.message ?? 'Room has ended');
+        if (!isHost) navigate({ to: '/teacher/cohosted-rooms' });
+
+      });
+
       socket.on('room-updated', (updatedRoom) => {
         // console.log('Room updated:', updatedRoom);
         setStudents(updatedRoom.students || []);
+
+        // Save Host ID for conditional UI rendering
+        if (updatedRoom.teacherId) {
+          setHostId(updatedRoom.teacherId);
+        }
       });
 
       socket.on('connect', () => {
@@ -372,6 +519,9 @@ export default function TeacherPollRoom() {
       socket.off('error');
       socket.off('poll-results-updated');
       socket.emit('leave-room', roomCode, null);
+      socket.off('cohost-joined');
+      socket.off('cohost-removed');
+      socket.off('room-ended');
     };
   }, [roomCode]);
 
@@ -563,6 +713,7 @@ export default function TeacherPollRoom() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
       setIsProcessing(true);
@@ -610,6 +761,7 @@ export default function TeacherPollRoom() {
       }
     } else {
       try {
+
         if (useWhisper) {
           setShowRecordModal(true);
         }
@@ -644,7 +796,7 @@ export default function TeacherPollRoom() {
           setInterimTranscript("");
         }
       } catch (error) {
-        // Error accessing microphone
+        console.error("Error accessing microphone:", error);
       }
     }
   }, [
@@ -665,7 +817,7 @@ export default function TeacherPollRoom() {
     setQueuedViewerIndex,
     setQueuedGeneratedQuestions,
     updateAudioLevel,
-    setInterimTranscript
+    setInterimTranscript,
   ]);
 
 
@@ -1294,6 +1446,7 @@ export default function TeacherPollRoom() {
     ];
 
     const selectedModelLabel = models.find(model => model.value === selectedModel)?.label || "Select Model";
+
     return (
       <div className={`relative ${className}`}>
         <button
@@ -1566,6 +1719,7 @@ export default function TeacherPollRoom() {
     });
 
   };
+
   const handleLaunchPoll = async () => {
     const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
@@ -1619,14 +1773,15 @@ export default function TeacherPollRoom() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar with student list */}
-          {!showResultsModal && !showPollModal && !showPreview && (
 
+          {!showResultsModal && !showPollModal && !showPreview && (
             <div className={`${isSidebarCollapsed ? 'w-12' : 'w-54'} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out`}>
-              {/* //  Sidebar header with title and toggle button */}
+
+              {/* Sidebar header */}
               <div className={`h-16 border-b border-gray-200 dark:border-gray-700 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'px-4'} flex-shrink-0`}>
                 {!isSidebarCollapsed && (
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex-1">
-                    Students
+                    Participants
                   </h2>
                 )}
                 <Button
@@ -1635,7 +1790,6 @@ export default function TeacherPollRoom() {
                   aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                   variant="ghost"
                   size="icon"
-
                 >
                   {isSidebarCollapsed ? (
                     <ChevronRight className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -1645,38 +1799,66 @@ export default function TeacherPollRoom() {
                 </Button>
               </div>
 
+              {/* Capsule Toggle Button (Only show if not collapsed) */}
+              {isHost && !isSidebarCollapsed && (
+                <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex bg-[#9b51e0] dark:bg-purple-700 rounded-full p-1 text-sm font-semibold shadow-inner">
+                    <button
+                      onClick={() => setActiveSidebarTab('students')}
+                      className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${activeSidebarTab === 'students'
+                        ? 'bg-white text-[#9b51e0] shadow-sm'
+                        : 'text-white hover:bg-white/20'
+                        }`}
+                    >
+                      Students
+                    </button>
+                    <button
+                      onClick={() => setActiveSidebarTab('cohosts')}
+                      className={`flex-1 text-center py-1.5 px-3 rounded-full transition-all duration-300 ${activeSidebarTab === 'cohosts'
+                        ? 'bg-white text-[#9b51e0] shadow-sm'
+                        : 'text-white hover:bg-white/20'
+                        }`}
+                    >
+                      Cohosts
+                    </button>
+                  </div>
+                </div>
+              )}
 
+              {/* List content */}
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-2">
-                  {students.length > 0 ? (
-                    students.map((student: any, index: number) => {
-                      const studentName = student?.firstName;
-                      return (
-                        <div
-                          key={index}
-                          className="
+                  {/* STUDENTS TAB */}
+                  {activeSidebarTab === 'students' && (
+                    students.length > 0 ? (
+                      students.map((student: any, index: number) => {
+                        const studentName = student?.firstName;
+                        return (
+                          <div
+                            key={index}
+                            className="
               group flex items-center justify-between
               w-full
               p-2 rounded-lg
               hover:bg-gray-100 dark:hover:bg-gray-700
               transition-colors
             "
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
 
-                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                              <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
 
+                              {!isSidebarCollapsed && (
+                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                  {studentName}
+                                </span>
+                              )}
+
+                            </div>
                             {!isSidebarCollapsed && (
-                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                                {studentName}
-                              </span>
-                            )}
-
-                          </div>
-                          {!isSidebarCollapsed && (
-                            <Trash2
-                              size={18}
-                              className="
+                              <Trash2
+                                size={18}
+                                className="
                   text-red-500
                   cursor-pointer
                   opacity-0
@@ -1685,24 +1867,64 @@ export default function TeacherPollRoom() {
                   hover:text-red-700 hover:scale-110
                   flex-shrink-0
                 "
-                              onClick={() => handleRemoveStudent(student.email)}
-                            />
-                          )}
+                                onClick={() => handleRemoveStudent(student.email)}
+                              />
+                            )}
 
+                          </div>
+                        )
+                      }
+
+                      )
+
+                    )
+                      : (
+                        <div className="p-2">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                            {!isSidebarCollapsed && "No students connected yet"}
+                          </p>
                         </div>
+                      )
+                  )}
 
-                      );
+                  {/* COHOSTS TAB (Real Data) */}
+                  {isHost && activeSidebarTab === 'cohosts' && (
+                    cohosts.length > 0 ? (
+                      cohosts.map((cohost, index) => (
+                        <div
+                          key={index}
+                          className="group flex items-center justify-between p-2 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border border-transparent hover:border-purple-200 dark:hover:border-purple-800"
+                        >
+                          <div className="flex items-center overflow-hidden">
+                            {/* Purple round dot */}
+                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2 shrink-0"></div>
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                                {cohost.firstName || cohost.name || "Cohost"}
+                              </span>
+                            )}
+                          </div>
 
-                    })
-
-                  ) : (
-
-                    <div className="p-2">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        No students connected yet
-                      </p>
-                    </div>
-
+                          {/* Cross Button (Visible only to Host on hover) */}
+                          {isHost && !isSidebarCollapsed && (
+                            <button
+                              // Pass the correct ID format to the removal handler
+                              onClick={() => handleRemoveCohost(cohost.userId || cohost.id || cohost._id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
+                              title="Remove Co-host"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                          {!isSidebarCollapsed && "No co-hosts joined yet"}
+                        </p>
+                      </div>
+                    )
                   )}
                 </div>
               </ScrollArea>
@@ -1719,8 +1941,8 @@ export default function TeacherPollRoom() {
                   variant="ghost"
                   size="icon"
                   className="mr-2"
-                  onClick={() => navigate({ to: '/teacher/manage-rooms' })}
-                  title="Back to Manage Rooms"
+                  onClick={() => navigate({ to: isHost ? '/teacher/manage-rooms' : '/teacher/cohosted-rooms' })}
+                  title={isHost ? "Back to Manage Rooms" : "Back to Home"}
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -1758,14 +1980,16 @@ export default function TeacherPollRoom() {
                   <Wand2 className="w-4 h-4 mr-2" />
                   {showPreview ? 'Generated Questions' : 'Generated Questions'}
                 </Button>
-                <Button
-                  variant={showPollModal ? "default" : "outline"}
-                  onClick={handleCreateManualPoll}
-                  className="mr-2"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Live Poll
-                </Button>
+                {isHost && (
+                  <Button
+                    variant={showPollModal ? "default" : "outline"}
+                    onClick={handleCreateManualPoll}
+                    className="mr-2"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Live Poll
+                  </Button>
+                )}
                 <Button
                   variant={showResultsModal ? "default" : "outline"}
                   onClick={handlePollResultsbutton}
@@ -1785,31 +2009,47 @@ export default function TeacherPollRoom() {
                   size="sm"
                   className="flex items-center gap-1 sm:gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 text-xs sm:text-sm"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                   </svg>
                   <span className="hidden xs:inline">Copy Code</span>
                 </Button>
-                <Button
-                  onClick={() => setShowEndRoomConfirm(true)}
-                  variant="destructive"
-                  className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                  disabled={isEndingRoom}
-                >
-                  <LogOut size={16} />
-                  <span className="xs:inline">End Room</span>
-                </Button>
+
+                {isHost && (
+                  <>
+                    {inviteLink ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => copyToClipboard(inviteLink)}
+                        className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                      >
+                        <Copy size={16} />
+                        <span className="xs:inline">Copy Invite Link</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleInviteCohost}
+                        disabled={isCreating}
+                        variant="outline"
+                        className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                      >
+                        {isCreating ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                        <span className="xs:inline">{isCreating ? "Creating..." : "Invite Cohost"}</span>
+                      </Button>
+                    )}
+
+                    <Button
+                      onClick={() => setShowEndRoomConfirm(true)}
+                      variant="destructive"
+                      className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                      disabled={isEndingRoom}
+                    >
+                      <LogOut size={16} />
+                      <span className="xs:inline">End Room</span>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1863,6 +2103,8 @@ export default function TeacherPollRoom() {
                     <Wand2 className="w-4 h-4 mr-2" />
                     {showPreview ? 'Generated Questions' : 'Generated Questions'}
                   </Button>
+                  {
+                    isHost && (
                   <Button
                     variant={showPollModal ? "default" : "outline"}
                     onClick={() => {
@@ -1874,6 +2116,8 @@ export default function TeacherPollRoom() {
                     <Plus className="w-4 h-4 mr-2" />
                     Create Live Poll
                   </Button>
+                    )
+                  }
                   <Button
                     variant={showResultsModal ? "default" : "outline"}
                     onClick={() => {
@@ -1885,6 +2129,8 @@ export default function TeacherPollRoom() {
                     <BarChart2 className="w-4 h-4 mr-2" />
                     Poll Results
                   </Button>
+                  {
+                    isHost && (
                   <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                       onClick={() => {
@@ -1899,6 +2145,8 @@ export default function TeacherPollRoom() {
                       End Room
                     </Button>
                   </div>
+                    )
+                  }
                 </div>
               </div>
 
@@ -3093,7 +3341,7 @@ export default function TeacherPollRoom() {
                           Poll options (choose correct/right option)
                         </legend>
 
-                        {getFilteredOptions(options).map((opt, i) => (
+                        {options.map((opt, i) => (
                           <div key={i} className="flex items-center gap-3">
                             <input
                               type="radio"

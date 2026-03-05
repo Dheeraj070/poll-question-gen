@@ -1,3 +1,5 @@
+import { JwtPayload } from "jsonwebtoken";
+
 export interface PollAnswer {
   userId: string;
   answerIndex: number;
@@ -23,3 +25,22 @@ export interface Room {
   status: 'active' | 'ended';
   polls: Poll[];
 }
+
+export interface CohostJwtPayload extends JwtPayload {
+  roomId: string;
+  jti: string;
+}
+
+export interface GetCohostRoom {
+  rooms: Room[];
+  count: number;
+}
+
+export interface ActiveCohost {
+  userId: string;  
+  firstName: string;
+  lastName: string;
+  email: string;
+  addedAt: Date;
+}
+
