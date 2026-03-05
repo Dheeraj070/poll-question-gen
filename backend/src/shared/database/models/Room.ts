@@ -28,6 +28,11 @@ const CoHostSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+    
+    isMicMuted: {
+      type: Boolean,
+      default: false
     }
   },
   { _id: false }

@@ -322,4 +322,19 @@ export class PollRoomController {
     return { success: true, ...resp }
   }
 
+  //mute or unmute cohost mic
+  @Patch('/cohost/:code/mic')
+  async toggleCohostMic(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string; teacherId: string; isMicMuted: boolean }
+  ) {
+    const resp = await this.roomService.setCohostMicMuted(
+      roomCode,
+      body.teacherId,
+      body.userId,
+      body.isMicMuted
+    );
+    return { success: true, ...resp };
+  }
+
 }

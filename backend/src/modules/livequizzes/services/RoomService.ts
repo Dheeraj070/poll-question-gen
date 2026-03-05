@@ -250,6 +250,17 @@ export class RoomService {
       throw new NotFoundError("Room is not found");
     }
 
+    const activeCohost = room.coHosts.find(
+      c => c.userId.toString() === userId && c.isActive
+    );
+
+    if (activeCohost?.isMicMuted) {
+      return {
+        success: false,
+        message: "Host has muted your microphone"
+      };
+    }
+
     // Check if recording lock exists and is still valid
     if (room.recordingLock) {
       const now = new Date();
@@ -534,7 +545,8 @@ export class RoomService {
           firstName: "$cohostUser.firstName",
           lastName: "$cohostUser.lastName",
           email: "$cohostUser.email",
-          addedAt: "$coHosts.addedAt"
+          addedAt: "$coHosts.addedAt",
+          isMicMuted: "$coHosts.isMicMuted"
         }
       }
     ]);
@@ -565,4 +577,48 @@ export class RoomService {
     });
     return { message: 'coHost removed successfully' }
   }
+
+  //mute cohost mic 
+  async setCohostMicMuted(
+    roomCode: string,
+    teacherId: string,
+    userId: string,
+    isMicMuted: boolean
+  ): Promise<{ message: string; isMicMuted: boolean }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) throw new NotFoundError("Room is not found");
+    if (room.teacherId !== teacherId) {
+      throw new HttpError(403, "Only host can manage co-host microphone");
+    }
+
+    const cohost = room.coHosts.find(c => c.userId === userId && c.isActive);
+    if (!cohost) throw new NotFoundError("Active co-host not found");
+
+    cohost.isMicMuted = isMicMuted;
+
+    let lockReleased = false;
+    if (isMicMuted && room.recordingLock?.userId === userId) {
+      room.recordingLock = null;
+      lockReleased = true;
+    }
+
+    await room.save();
+
+    if (lockReleased) {
+      pollSocket?.emitToRoom(roomCode, "recording-stopped", { userId });
+    }
+
+    const activeCohosts = await this.getRoomCohosts(teacherId, roomCode);
+    pollSocket?.emitToRoom(roomCode, "cohost-mic-updated", {
+      cohostId: userId,
+      isMicMuted,
+      activeCohosts
+    });
+
+    return {
+      message: isMicMuted ? "Co-host microphone muted" : "Co-host microphone unmuted",
+      isMicMuted
+    };
+  }
+
 }
