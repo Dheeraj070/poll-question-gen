@@ -152,7 +152,7 @@ export default function TeacherPollRoom() {
 
   // Real Cohosts State
   const [cohosts, setCohosts] = useState<CohostUser[]>([]);
-   // Store the room creator's ID for role-based access
+  // Store the room creator's ID for role-based access
   const [hostId, setHostId] = useState<string | null>(null);
   // 1. Fetch Cohosts API 
   const fetchCohosts = useCallback(async () => {
@@ -164,7 +164,7 @@ export default function TeacherPollRoom() {
     } catch (error) {
       console.error("Error fetching cohosts:", error);
     }
-  }, [currentUser?.uid, roomCode,hostId,]);
+  }, [currentUser?.uid, roomCode, hostId,]);
 
   useEffect(() => {
     fetchCohosts();
@@ -185,7 +185,7 @@ export default function TeacherPollRoom() {
     }
   };
 
- 
+
   const isHost = currentUser?.uid === hostId;
 
   //handle invite cohost
@@ -215,6 +215,12 @@ export default function TeacherPollRoom() {
   //handle cohost mic mute or unmute toggle
   const handleToggleCohostMic = async (cohostId: string, isMicMuted: boolean) => {
     if (!cohostId || !currentUser?.uid) return;
+    // instant UI change
+    setCohosts(prev =>
+      prev.map(c =>
+        c.userId === cohostId ? { ...c, isMicMuted } : c
+      )
+    );
 
     try {
       await api.patch(`/livequizzes/rooms/cohost/${roomCode}/mic`, {
@@ -233,6 +239,11 @@ export default function TeacherPollRoom() {
       toast.success(isMicMuted ? "Co-host mic muted" : "Co-host mic unmuted");
     } catch (error) {
       console.error("Error toggling cohost mic:", error);
+      setCohosts(prev =>
+        prev.map(c =>
+          c.userId === cohostId ? { ...c, isMicMuted:!isMicMuted } : c
+        )
+      );
       toast.error("Failed to update co-host microphone");
     }
   };
@@ -2591,8 +2602,8 @@ export default function TeacherPollRoom() {
                                   <div
                                     role="alert"
                                     className={`w-full max-w-xl mb-3 rounded-md border px-3 py-2 ${isMicMutedByHost
-                                        ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200"
-                                        : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                                      ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200"
+                                      : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
                                       }`}
                                   >
                                     <div className="flex items-start gap-2">
