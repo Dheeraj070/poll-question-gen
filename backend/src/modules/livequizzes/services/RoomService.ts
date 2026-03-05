@@ -414,6 +414,10 @@ export class RoomService {
       throw new HttpError(400, "Invite invalid or expired")
     }
 
+    if (room.teacherId === userId) {
+      throw new HttpError(400, "Host cannot join as cohost");
+    }
+
     const user = await UserModel.findOne({
       firebaseUID:
         userId

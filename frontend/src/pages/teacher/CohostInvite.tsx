@@ -23,7 +23,11 @@ const CohostInvite = () => {
             console.error("Error joining as co-host:", error);
             if (error.response?.data?.message === "jwt expired") {
                 toast.error("Invite link has expired.");
-            } else {
+            } else if (error.response?.data?.message === "Host cannot join as cohost"){
+                navigate({ to: `/teacher/manage-rooms` });
+                toast.error(error.response?.data?.message ?? "Host cannot join as cohost")
+            }
+             else {
                 toast.error("Failed to join as co-host. Please try again.");
             }
         }
