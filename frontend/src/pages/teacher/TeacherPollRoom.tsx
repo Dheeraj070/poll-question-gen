@@ -94,7 +94,7 @@ export default function TeacherPollRoom() {
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
   const roomCode: string = params.code as string;
-  const { user:currentUser } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
   const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
   const [isCreating, setIsCreating] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
@@ -103,48 +103,48 @@ export default function TeacherPollRoom() {
   const inviteStorageKey = `cohost-invite-link:${roomCode}:${currentUser?.uid ?? "anonymous"}`;
 
   const clearInviteLink = useCallback(() => {
-  setInviteLink('');
-  setInviteLinkExpiresAt(null);
-  localStorage.removeItem(inviteStorageKey);
-}, [inviteStorageKey]);
+    setInviteLink('');
+    setInviteLinkExpiresAt(null);
+    localStorage.removeItem(inviteStorageKey);
+  }, [inviteStorageKey]);
 
-useEffect(() => {
-  if (!currentUser?.uid || !roomCode) return;
+  useEffect(() => {
+    if (!currentUser?.uid || !roomCode) return;
 
-  const raw = localStorage.getItem(inviteStorageKey);
-  if (!raw) return;
+    const raw = localStorage.getItem(inviteStorageKey);
+    if (!raw) return;
 
-  try {
-    const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
-    if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+    try {
+      const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
+      if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+        localStorage.removeItem(inviteStorageKey);
+        return;
+      }
+
+      setInviteLink(parsed.inviteLink);
+      setInviteLinkExpiresAt(parsed.expiresAt);
+    } catch {
       localStorage.removeItem(inviteStorageKey);
+    }
+  }, [currentUser?.uid, roomCode, inviteStorageKey]);
+
+  useEffect(() => {
+    if (!inviteLink || !inviteLinkExpiresAt) return;
+
+    const remainingMs = inviteLinkExpiresAt - Date.now();
+    if (remainingMs <= 0) {
+      clearInviteLink();
       return;
     }
 
-    setInviteLink(parsed.inviteLink);
-    setInviteLinkExpiresAt(parsed.expiresAt);
-  } catch {
-    localStorage.removeItem(inviteStorageKey);
-  }
-}, [currentUser?.uid, roomCode, inviteStorageKey]);
+    localStorage.setItem(
+      inviteStorageKey,
+      JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
+    );
 
-  useEffect(() => {
-  if (!inviteLink || !inviteLinkExpiresAt) return;
-
-  const remainingMs = inviteLinkExpiresAt - Date.now();
-  if (remainingMs <= 0) {
-    clearInviteLink();
-    return;
-  }
-
-  localStorage.setItem(
-    inviteStorageKey,
-    JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
-  );
-
-  const timeout = window.setTimeout(clearInviteLink, remainingMs);
-  return () => window.clearTimeout(timeout);
-}, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
+    const timeout = window.setTimeout(clearInviteLink, remainingMs);
+    return () => window.clearTimeout(timeout);
+  }, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
 
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
@@ -327,13 +327,13 @@ useEffect(() => {
   const [_showGGMLRecordModel, setShowGGMLRecordModel] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | undefined>(undefined);
 
-    // Recording lock state
-    const [recordingLockStatus, setRecordingLockStatus] = useState<{
-      isLocked: boolean;
-      currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
-    }>({ isLocked: false });
-    const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const [micLockAlert, setMicLockAlert] = useState<string | null>(null);
+  // Recording lock state
+  const [recordingLockStatus, setRecordingLockStatus] = useState<{
+    isLocked: boolean;
+    currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
+  }>({ isLocked: false });
+  const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [micLockAlert, setMicLockAlert] = useState<string | null>(null);
 
 
   // UI state for queued question viewer shown after mic stops
@@ -465,6 +465,17 @@ useEffect(() => {
           setIsLiveRecordingActive(false);
         }
       });
+      socket.on('roomControlsUpdated', (controls) => {
+        if (controls.micBlocked) setRoomControlMode('mic-disabled');
+        else if (controls.pollRestricted) setRoomControlMode('poll-disabled');
+        else setRoomControlMode('full');
+
+        if (controls.micBlocked) {
+          setIsRecording(false);
+          setIsListening(false);
+          setIsLiveRecordingActive(false);
+        }
+      });
       socket.on('cohost-joined', (data) => {
         setCohosts(data.activeCohosts || []);
         toast.success('A co-host has joined the room');
@@ -534,6 +545,7 @@ useEffect(() => {
       socket.off('error');
       socket.off('poll-results-updated');
       socket.emit('leave-room', roomCode, null);
+      socket.off('roomControlsUpdated');
       socket.off('cohost-joined');
       socket.off('cohost-removed');
       socket.off('room-ended');
@@ -570,8 +582,8 @@ useEffect(() => {
   }, [livePollResults, currentQuestionIndex, generatedQuestions]);
 
   const isMicLockedByOtherUser =
-  recordingLockStatus.isLocked &&
-  recordingLockStatus.currentRecorder?.userId !== currentUser?.uid;
+    recordingLockStatus.isLocked &&
+    recordingLockStatus.currentRecorder?.userId !== currentUser?.uid;
   const displayTranscript =
     liveTranscript + (interimTranscript ? " " + interimTranscript : "");
 
@@ -732,16 +744,16 @@ useEffect(() => {
         cancelAnimationFrame(animationFrameRef.current);
       }
 
-        // Release recording lock
-            try {
-              if (currentUser?.uid) {
-                await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-                  userId: currentUser.uid
-                });
-              }
-            } catch (error) {
-              console.error("Error releasing recording lock:", error);
-            }
+      // Release recording lock
+      try {
+        if (currentUser?.uid) {
+          await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+            userId: currentUser.uid
+          });
+        }
+      } catch (error) {
+        console.error("Error releasing recording lock:", error);
+      }
 
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
@@ -797,18 +809,18 @@ useEffect(() => {
           return;
         }
         // Try to acquire recording lock before starting
-                if (currentUser?.uid) {
-                  const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
-                    userId: currentUser.uid,
-                    userName: currentUser.name || "Unknown"
-                  });
-        
-                  if (!lockResponse.data.success) {
-                    toast.error(lockResponse.data.message);
-                    return;
-                  }
-                }
-        
+        if (currentUser?.uid) {
+          const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
+            userId: currentUser.uid,
+            userName: currentUser.name || "Unknown"
+          });
+
+          if (!lockResponse.data.success) {
+            toast.error(lockResponse.data.message);
+            return;
+          }
+        }
+
         if (useWhisper) {
           setShowRecordModal(true);
         }
@@ -844,16 +856,16 @@ useEffect(() => {
         }
       } catch (error) {
         // Error accessing microphone
-         // Ensure lock is released if there was an error
-                try {
-                  if (currentUser?.uid) {
-                    await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-                      userId: currentUser.uid
-                    });
-                  }
-                } catch (releaseError) {
-                  console.error("Error releasing lock after failed start:", releaseError);
-                }
+        // Ensure lock is released if there was an error
+        try {
+          if (currentUser?.uid) {
+            await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+              userId: currentUser.uid
+            });
+          }
+        } catch (releaseError) {
+          console.error("Error releasing lock after failed start:", releaseError);
+        }
         console.error("Error accessing microphone:", error);
       }
     }
@@ -926,43 +938,43 @@ useEffect(() => {
     };
   }, [language, handleRecordingToggle]);
 
-    // Poll recording lock status and listen to socket events
-    useEffect(() => {
-      const pollRecordingStatus = async () => {
-        try {
-          if (!roomCode) return;
-          const response = await api.get(`/livequizzes/rooms/${roomCode}/recording/status`);
-          setRecordingLockStatus(response.data);
-        } catch (error) {
-          console.error("Error polling recording status:", error);
-        }
-      };
-  
-      // Poll every 2 seconds
-      pollRecordingStatus();
-      recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
-  
-      // Listen for recording started event
-      socket.on('recording-started', (data: any) => {
-        setRecordingLockStatus({
-          isLocked: true,
-          currentRecorder: data
-        });
+  // Poll recording lock status and listen to socket events
+  useEffect(() => {
+    const pollRecordingStatus = async () => {
+      try {
+        if (!roomCode) return;
+        const response = await api.get(`/livequizzes/rooms/${roomCode}/recording/status`);
+        setRecordingLockStatus(response.data);
+      } catch (error) {
+        console.error("Error polling recording status:", error);
+      }
+    };
+
+    // Poll every 2 seconds
+    pollRecordingStatus();
+    recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
+
+    // Listen for recording started event
+    socket.on('recording-started', (data: any) => {
+      setRecordingLockStatus({
+        isLocked: true,
+        currentRecorder: data
       });
-  
-      // Listen for recording stopped event
-      socket.on('recording-stopped', () => {
-        setRecordingLockStatus({ isLocked: false });
-      });
-  
-      return () => {
-        if (recordingLockPollIntervalRef.current) {
-          clearInterval(recordingLockPollIntervalRef.current);
-        }
-        socket.off('recording-started');
-        socket.off('recording-stopped');
-      };
-    }, [roomCode]);
+    });
+
+    // Listen for recording stopped event
+    socket.on('recording-stopped', () => {
+      setRecordingLockStatus({ isLocked: false });
+    });
+
+    return () => {
+      if (recordingLockPollIntervalRef.current) {
+        clearInterval(recordingLockPollIntervalRef.current);
+      }
+      socket.off('recording-started');
+      socket.off('recording-stopped');
+    };
+  }, [roomCode]);
 
   const handleAudioFromRecording = async (data: Blob) => {
     if (!data) return;
@@ -1818,14 +1830,26 @@ useEffect(() => {
 
   };
 
-  const handleControlModeChange = (newMode: 'full' | 'mic-disabled' | 'poll-disabled') => {
+  const handleControlModeChange = async (newMode: 'full' | 'mic-disabled' | 'poll-disabled') => {
     setRoomControlMode(newMode);
-    socket.emit('update-room-control', { roomCode, mode: newMode });
-    toast.success(
-      newMode === 'full' ? 'All features enabled' :
-        newMode === 'mic-disabled' ? 'Mic access restricted' :
-          'Poll creation restricted'
-    );
+
+    try {
+      // Backend API call jo DB update karegi aur Socket emit karegi
+      await api.patch(`/livequizzes/rooms/${roomCode}/controls`, {
+        userId: currentUser?.uid,
+        micBlocked: newMode === 'mic-disabled',
+        pollRestricted: newMode === 'poll-disabled'
+      });
+
+      toast.success(
+        newMode === 'full' ? 'All features enabled' :
+          newMode === 'mic-disabled' ? 'Mic access restricted' :
+            'Poll creation restricted'
+      );
+    } catch (error) {
+      console.error("Error updating controls:", error);
+      toast.error("Failed to update room controls");
+    }
   };
 
   const handleLaunchPoll = async () => {
@@ -2107,26 +2131,27 @@ useEffect(() => {
                   Poll Results
                 </Button>
 
-                {/* Dropdown Poll Results ki side mein aur Dark Mode Fixed */}
-                <div className="ml-2 border-l border-gray-300 dark:border-gray-700 pl-4">
-                  <Select value={roomControlMode} onValueChange={handleControlModeChange}>
-                    <SelectTrigger className="w-[160px] h-9 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-purple-500" />
-                        <span className="text-sm truncate">
-                          {roomControlMode === 'full' && "Full Access"}
-                          {roomControlMode === 'mic-disabled' && "Mic Disabled"}
-                          {roomControlMode === 'poll-disabled' && "Polls Disabled"}
-                        </span>
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
-                      <SelectItem value="full" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Everything Working</SelectItem>
-                      <SelectItem value="mic-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Mic Only</SelectItem>
-                      <SelectItem value="poll-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Create Poll</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {isHost && (
+                  <div className="ml-2 border-l border-gray-300 dark:border-gray-700 pl-4">
+                    <Select value={roomControlMode} onValueChange={handleControlModeChange}>
+                      <SelectTrigger className="w-[160px] h-9 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-purple-500" />
+                          <span className="text-sm truncate">
+                            {roomControlMode === 'full' && "Full Access"}
+                            {roomControlMode === 'mic-disabled' && "Mic Disabled"}
+                            {roomControlMode === 'poll-disabled' && "Polls Disabled"}
+                          </span>
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                        <SelectItem value="full" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Everything Working</SelectItem>
+                        <SelectItem value="mic-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Mic Only</SelectItem>
+                        <SelectItem value="poll-disabled" className="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">Disable Create Poll</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -2236,18 +2261,18 @@ useEffect(() => {
                   </Button>
                   {
                     isHost && (
-                  <Button
-                    variant={showPollModal ? "default" : "outline"}
-                    onClick={() => {
-                      handleCreateManualPoll();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full justify-start"
-                    disabled={roomControlMode === 'poll-disabled'}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Live Poll
-                  </Button>
+                      <Button
+                        variant={showPollModal ? "default" : "outline"}
+                        onClick={() => {
+                          handleCreateManualPoll();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full justify-start"
+                        disabled={roomControlMode === 'poll-disabled'}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Live Poll
+                      </Button>
                     )
                   }
                   <Button
@@ -2263,20 +2288,20 @@ useEffect(() => {
                   </Button>
                   {
                     isHost && (
-                  <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                    <Button
-                      onClick={() => {
-                        setShowEndRoomConfirm(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      variant="destructive"
-                      className="w-full justify-start"
-                      disabled={isEndingRoom}
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      End Room
-                    </Button>
-                  </div>
+                      <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                        <Button
+                          onClick={() => {
+                            setShowEndRoomConfirm(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          variant="destructive"
+                          className="w-full justify-start"
+                          disabled={isEndingRoom}
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          End Room
+                        </Button>
+                      </div>
                     )
                   }
                 </div>
@@ -2574,10 +2599,19 @@ useEffect(() => {
                                     </div>
                                   </div>
                                 )}
-
+                                {roomControlMode === 'mic-disabled' && !isHost && (
+                                  <div role="alert" className="w-full max-w-xl mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200">
+                                    <div className="flex items-start gap-2">
+                                      <Shield className="h-4 w-4 mt-0.5 shrink-0" />
+                                      <p className="text-sm font-medium">
+                                        The host has disabled microphone access for all co-hosts.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
                                 <Button
                                   onClick={() => handleRecordingToggle()}
-                                  disabled={roomControlMode === 'mic-disabled' || isMicLockedByOtherUser }
+                                  disabled={roomControlMode === 'mic-disabled' || isMicLockedByOtherUser}
                                   size="lg"
                                   variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
                                   className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
