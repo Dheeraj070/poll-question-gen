@@ -95,7 +95,7 @@ export default function TeacherPollRoom() {
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
   const roomCode: string = params.code as string;
-  const { user:currentUser } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
   const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
   const [isCreating, setIsCreating] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
@@ -104,65 +104,67 @@ export default function TeacherPollRoom() {
   const inviteStorageKey = `cohost-invite-link:${roomCode}:${currentUser?.uid ?? "anonymous"}`;
 
   const clearInviteLink = useCallback(() => {
-  setInviteLink('');
-  setInviteLinkExpiresAt(null);
-  localStorage.removeItem(inviteStorageKey);
-}, [inviteStorageKey]);
+    setInviteLink('');
+    setInviteLinkExpiresAt(null);
+    localStorage.removeItem(inviteStorageKey);
+  }, [inviteStorageKey]);
 
-useEffect(() => {
-  if (!currentUser?.uid || !roomCode) return;
+  useEffect(() => {
+    if (!currentUser?.uid || !roomCode) return;
 
-  const raw = localStorage.getItem(inviteStorageKey);
-  if (!raw) return;
+    const raw = localStorage.getItem(inviteStorageKey);
+    if (!raw) return;
 
-  try {
-    const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
-    if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+    try {
+      const parsed = JSON.parse(raw) as { inviteLink?: string; expiresAt?: number };
+      if (!parsed.inviteLink || !parsed.expiresAt || Date.now() >= parsed.expiresAt) {
+        localStorage.removeItem(inviteStorageKey);
+        return;
+      }
+
+      setInviteLink(parsed.inviteLink);
+      setInviteLinkExpiresAt(parsed.expiresAt);
+    } catch {
       localStorage.removeItem(inviteStorageKey);
+    }
+  }, [currentUser?.uid, roomCode, inviteStorageKey]);
+
+  useEffect(() => {
+    if (!inviteLink || !inviteLinkExpiresAt) return;
+
+    const remainingMs = inviteLinkExpiresAt - Date.now();
+    if (remainingMs <= 0) {
+      clearInviteLink();
       return;
     }
 
-    setInviteLink(parsed.inviteLink);
-    setInviteLinkExpiresAt(parsed.expiresAt);
-  } catch {
-    localStorage.removeItem(inviteStorageKey);
-  }
-}, [currentUser?.uid, roomCode, inviteStorageKey]);
+    localStorage.setItem(
+      inviteStorageKey,
+      JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
+    );
 
-  useEffect(() => {
-  if (!inviteLink || !inviteLinkExpiresAt) return;
-
-  const remainingMs = inviteLinkExpiresAt - Date.now();
-  if (remainingMs <= 0) {
-    clearInviteLink();
-    return;
-  }
-
-  localStorage.setItem(
-    inviteStorageKey,
-    JSON.stringify({ inviteLink, expiresAt: inviteLinkExpiresAt })
-  );
-
-  const timeout = window.setTimeout(clearInviteLink, remainingMs);
-  return () => window.clearTimeout(timeout);
-}, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
+    const timeout = window.setTimeout(clearInviteLink, remainingMs);
+    return () => window.clearTimeout(timeout);
+  }, [inviteLink, inviteLinkExpiresAt, inviteStorageKey, clearInviteLink]);
 
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
 
   // Real Cohosts State
   const [cohosts, setCohosts] = useState<CohostUser[]>([]);
-
+   // Store the room creator's ID for role-based access
+  const [hostId, setHostId] = useState<string | null>(null);
   // 1. Fetch Cohosts API 
   const fetchCohosts = useCallback(async () => {
     try {
-      if (!currentUser?.uid || !roomCode) return;
-      const res = await api.get(`/livequizzes/rooms/cohost/${currentUser.uid}/${roomCode}`);
+      const host = hostId || currentUser?.uid;
+      if (!host || !roomCode) return;
+      const res = await api.get(`/livequizzes/rooms/cohost/${host}/${roomCode}`);
       setCohosts(res.data.activeCohosts || []);
     } catch (error) {
       console.error("Error fetching cohosts:", error);
     }
-  }, [currentUser?.uid, roomCode]);
+  }, [currentUser?.uid, roomCode,hostId,]);
 
   useEffect(() => {
     fetchCohosts();
@@ -183,8 +185,7 @@ useEffect(() => {
     }
   };
 
-  // Store the room creator's ID for role-based access
-  const [hostId, setHostId] = useState<string | null>(null);
+ 
   const isHost = currentUser?.uid === hostId;
 
   //handle invite cohost
@@ -213,28 +214,28 @@ useEffect(() => {
 
   //handle cohost mic mute or unmute toggle
   const handleToggleCohostMic = async (cohostId: string, isMicMuted: boolean) => {
-  if (!cohostId || !currentUser?.uid) return;
+    if (!cohostId || !currentUser?.uid) return;
 
-  try {
-    await api.patch(`/livequizzes/rooms/cohost/${roomCode}/mic`, {
-      teacherId: currentUser.uid,
-      userId: cohostId,
-      isMicMuted
-    });
+    try {
+      await api.patch(`/livequizzes/rooms/cohost/${roomCode}/mic`, {
+        teacherId: currentUser.uid,
+        userId: cohostId,
+        isMicMuted
+      });
 
-    setCohosts(prev =>
-      prev.map(cohost => {
-        const id = cohost.userId;
-        return id === cohostId ? { ...cohost, isMicMuted } : cohost;
-      })
-    );
+      setCohosts(prev =>
+        prev.map(cohost => {
+          const id = cohost.userId;
+          return id === cohostId ? { ...cohost, isMicMuted } : cohost;
+        })
+      );
 
-    toast.success(isMicMuted ? "Co-host mic muted" : "Co-host mic unmuted");
-  } catch (error) {
-    console.error("Error toggling cohost mic:", error);
-    toast.error("Failed to update co-host microphone");
-  }
-};
+      toast.success(isMicMuted ? "Co-host mic muted" : "Co-host mic unmuted");
+    } catch (error) {
+      console.error("Error toggling cohost mic:", error);
+      toast.error("Failed to update co-host microphone");
+    }
+  };
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -353,13 +354,13 @@ useEffect(() => {
   const [_showGGMLRecordModel, setShowGGMLRecordModel] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | undefined>(undefined);
 
-    // Recording lock state
-    const [recordingLockStatus, setRecordingLockStatus] = useState<{
-      isLocked: boolean;
-      currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
-    }>({ isLocked: false });
-    const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const [micLockAlert, setMicLockAlert] = useState<string | null>(null);
+  // Recording lock state
+  const [recordingLockStatus, setRecordingLockStatus] = useState<{
+    isLocked: boolean;
+    currentRecorder?: { userId: string; userName?: string; lockedSince: Date };
+  }>({ isLocked: false });
+  const recordingLockPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [micLockAlert, setMicLockAlert] = useState<string | null>(null);
 
 
   // UI state for queued question viewer shown after mic stops
@@ -597,13 +598,13 @@ useEffect(() => {
   }, [livePollResults, currentQuestionIndex, generatedQuestions]);
 
   const isMicLockedByOtherUser =
-  recordingLockStatus.isLocked &&
-  recordingLockStatus.currentRecorder?.userId !== currentUser?.uid;
+    recordingLockStatus.isLocked &&
+    recordingLockStatus.currentRecorder?.userId !== currentUser?.uid;
   const displayTranscript =
     liveTranscript + (interimTranscript ? " " + interimTranscript : "");
 
   const isCurrentUserCohostMuted = Boolean(
-  cohosts.find(c => c.userId === currentUser?.uid)?.isMicMuted
+    cohosts.find(c => c.userId === currentUser?.uid)?.isMicMuted
   );
   const isMicMutedByHost = !isHost && isCurrentUserCohostMuted;
   const isMicUnavailable = isMicLockedByOtherUser || isMicMutedByHost;
@@ -770,16 +771,16 @@ useEffect(() => {
         cancelAnimationFrame(animationFrameRef.current);
       }
 
-        // Release recording lock
-            try {
-              if (currentUser?.uid) {
-                await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-                  userId: currentUser.uid
-                });
-              }
-            } catch (error) {
-              console.error("Error releasing recording lock:", error);
-            }
+      // Release recording lock
+      try {
+        if (currentUser?.uid) {
+          await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+            userId: currentUser.uid
+          });
+        }
+      } catch (error) {
+        console.error("Error releasing recording lock:", error);
+      }
 
       // When recording stops, flush any remaining text (<100 words) into queue and
       // wait for queued processing to finish, then reveal the generated questions.
@@ -835,18 +836,18 @@ useEffect(() => {
           return;
         }
         // Try to acquire recording lock before starting
-                if (currentUser?.uid) {
-                  const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
-                    userId: currentUser.uid,
-                    userName: currentUser.name || "Unknown"
-                  });
-        
-                  if (!lockResponse.data.success) {
-                    toast.error(lockResponse.data.message);
-                    return;
-                  }
-                }
-        
+        if (currentUser?.uid) {
+          const lockResponse = await api.post(`/livequizzes/rooms/${roomCode}/recording/start`, {
+            userId: currentUser.uid,
+            userName: currentUser.name || "Unknown"
+          });
+
+          if (!lockResponse.data.success) {
+            toast.error(lockResponse.data.message);
+            return;
+          }
+        }
+
         if (useWhisper) {
           setShowRecordModal(true);
         }
@@ -882,16 +883,16 @@ useEffect(() => {
         }
       } catch (error) {
         // Error accessing microphone
-         // Ensure lock is released if there was an error
-                try {
-                  if (currentUser?.uid) {
-                    await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
-                      userId: currentUser.uid
-                    });
-                  }
-                } catch (releaseError) {
-                  console.error("Error releasing lock after failed start:", releaseError);
-                }
+        // Ensure lock is released if there was an error
+        try {
+          if (currentUser?.uid) {
+            await api.post(`/livequizzes/rooms/${roomCode}/recording/stop`, {
+              userId: currentUser.uid
+            });
+          }
+        } catch (releaseError) {
+          console.error("Error releasing lock after failed start:", releaseError);
+        }
         console.error("Error accessing microphone:", error);
       }
     }
@@ -964,43 +965,43 @@ useEffect(() => {
     };
   }, [language, handleRecordingToggle]);
 
-    // Poll recording lock status and listen to socket events
-    useEffect(() => {
-      const pollRecordingStatus = async () => {
-        try {
-          if (!roomCode) return;
-          const response = await api.get(`/livequizzes/rooms/${roomCode}/recording/status`);
-          setRecordingLockStatus(response.data);
-        } catch (error) {
-          console.error("Error polling recording status:", error);
-        }
-      };
-  
-      // Poll every 2 seconds
-      pollRecordingStatus();
-      recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
-  
-      // Listen for recording started event
-      socket.on('recording-started', (data: any) => {
-        setRecordingLockStatus({
-          isLocked: true,
-          currentRecorder: data
-        });
+  // Poll recording lock status and listen to socket events
+  useEffect(() => {
+    const pollRecordingStatus = async () => {
+      try {
+        if (!roomCode) return;
+        const response = await api.get(`/livequizzes/rooms/${roomCode}/recording/status`);
+        setRecordingLockStatus(response.data);
+      } catch (error) {
+        console.error("Error polling recording status:", error);
+      }
+    };
+
+    // Poll every 2 seconds
+    pollRecordingStatus();
+    recordingLockPollIntervalRef.current = setInterval(pollRecordingStatus, 2000);
+
+    // Listen for recording started event
+    socket.on('recording-started', (data: any) => {
+      setRecordingLockStatus({
+        isLocked: true,
+        currentRecorder: data
       });
-  
-      // Listen for recording stopped event
-      socket.on('recording-stopped', () => {
-        setRecordingLockStatus({ isLocked: false });
-      });
-  
-      return () => {
-        if (recordingLockPollIntervalRef.current) {
-          clearInterval(recordingLockPollIntervalRef.current);
-        }
-        socket.off('recording-started');
-        socket.off('recording-stopped');
-      };
-    }, [roomCode]);
+    });
+
+    // Listen for recording stopped event
+    socket.on('recording-stopped', () => {
+      setRecordingLockStatus({ isLocked: false });
+    });
+
+    return () => {
+      if (recordingLockPollIntervalRef.current) {
+        clearInterval(recordingLockPollIntervalRef.current);
+      }
+      socket.off('recording-started');
+      socket.off('recording-stopped');
+    };
+  }, [roomCode]);
 
   const handleAudioFromRecording = async (data: Blob) => {
     if (!data) return;
@@ -2052,22 +2053,22 @@ useEffect(() => {
                                   )
                                 }
                                 className={`p-1 rounded transition-colors ${cohost.isMicMuted
-                                    ? 'text-amber-600 hover:bg-amber-50'
-                                    : 'text-emerald-600 hover:bg-emerald-50'
+                                  ? 'text-amber-600 hover:bg-amber-50'
+                                  : 'text-emerald-600 hover:bg-emerald-50'
                                   }`}
                                 title={cohost.isMicMuted ? 'Unmute Co-host Mic' : 'Mute Co-host Mic'}
                               >
                                 {cohost.isMicMuted ? <MicOff size={14} /> : <Mic size={14} />}
                               </button>
 
-                            <button
-                              // Pass the correct ID format to the removal handler
-                              onClick={() => handleRemoveCohost(cohost?.userId)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
-                              title="Remove Co-host"
-                            >
-                              <X size={14} />
-                            </button>
+                              <button
+                                // Pass the correct ID format to the removal handler
+                                onClick={() => handleRemoveCohost(cohost?.userId)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
+                                title="Remove Co-host"
+                              >
+                                <X size={14} />
+                              </button>
                             </div>
                           )}
                         </div>
@@ -2259,17 +2260,17 @@ useEffect(() => {
                   </Button>
                   {
                     isHost && (
-                  <Button
-                    variant={showPollModal ? "default" : "outline"}
-                    onClick={() => {
-                      handleCreateManualPoll();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full justify-start"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Live Poll
-                  </Button>
+                      <Button
+                        variant={showPollModal ? "default" : "outline"}
+                        onClick={() => {
+                          handleCreateManualPoll();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full justify-start"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Live Poll
+                      </Button>
                     )
                   }
                   <Button
@@ -2285,20 +2286,20 @@ useEffect(() => {
                   </Button>
                   {
                     isHost && (
-                  <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                    <Button
-                      onClick={() => {
-                        setShowEndRoomConfirm(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      variant="destructive"
-                      className="w-full justify-start"
-                      disabled={isEndingRoom}
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      End Room
-                    </Button>
-                  </div>
+                      <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                        <Button
+                          onClick={() => {
+                            setShowEndRoomConfirm(true);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          variant="destructive"
+                          className="w-full justify-start"
+                          disabled={isEndingRoom}
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          End Room
+                        </Button>
+                      </div>
                     )
                   }
                 </div>
@@ -2586,30 +2587,29 @@ useEffect(() => {
                             <CardContent className="space-y-6">
 
                               <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
-                               {(isMicMutedByHost || isMicLockedByOtherUser) && (
-  <div
-    role="alert"
-    className={`w-full max-w-xl mb-3 rounded-md border px-3 py-2 ${
-      isMicMutedByHost
-        ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200"
-        : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
-    }`}
-  >
-    <div className="flex items-start gap-2">
-      {isMicMutedByHost ? (
-        <MicOff className="h-4 w-4 mt-0.5 shrink-0" />
-      ) : (
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-      )}
+                                {(isMicMutedByHost || isMicLockedByOtherUser) && (
+                                  <div
+                                    role="alert"
+                                    className={`w-full max-w-xl mb-3 rounded-md border px-3 py-2 ${isMicMutedByHost
+                                        ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200"
+                                        : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                                      }`}
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      {isMicMutedByHost ? (
+                                        <MicOff className="h-4 w-4 mt-0.5 shrink-0" />
+                                      ) : (
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                      )}
 
-      <p className="text-sm">
-        {isMicMutedByHost
-          ? "Your mic is muted by host. Recording is disabled until host unmutes you."
-          : `${recordingLockStatus.currentRecorder?.userName || "Another user"} is currently using the mic. Recording will be available once they stop.`}
-      </p>
-    </div>
-  </div>
-)}
+                                      <p className="text-sm">
+                                        {isMicMutedByHost
+                                          ? "Your mic is muted by host. Recording is disabled until host unmutes you."
+                                          : `${recordingLockStatus.currentRecorder?.userName || "Another user"} is currently using the mic. Recording will be available once they stop.`}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
 
 
                                 <Button
@@ -2621,7 +2621,7 @@ useEffect(() => {
                               bg-gradient-to-r from-purple-500 to-blue-500 text-white 
                               hover:from-purple-600 hover:to-blue-600 shadow-lg 
                               ${(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) && "animate-pulse"} transition-all
-                              ${isMicUnavailable  ? "opacity-50 cursor-not-allowed hover:from-purple-500 hover:to-blue-500" : ""}
+                              ${isMicUnavailable ? "opacity-50 cursor-not-allowed hover:from-purple-500 hover:to-blue-500" : ""}
                               `}
                                 >
                                   {(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
