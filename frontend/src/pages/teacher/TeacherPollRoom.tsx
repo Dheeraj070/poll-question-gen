@@ -235,8 +235,6 @@ export default function TeacherPollRoom() {
           return id === cohostId ? { ...cohost, isMicMuted } : cohost;
         })
       );
-
-      toast.success(isMicMuted ? "Co-host mic muted" : "Co-host mic unmuted");
     } catch (error) {
       console.error("Error toggling cohost mic:", error);
       setCohosts(prev =>
@@ -576,6 +574,7 @@ export default function TeacherPollRoom() {
       socket.off('cohost-joined');
       socket.off('cohost-removed');
       socket.off('room-ended');
+      socket.off('cohost-mic-updated');
     };
   }, [roomCode]);
 
