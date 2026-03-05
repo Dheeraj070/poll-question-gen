@@ -167,6 +167,36 @@ export default function TeacherPollRoom() {
     fetchCohosts();
   }, [fetchCohosts]);
 
+  // 3. Fetch Room Details on Load (To persist dropdown state on refresh)
+  useEffect(() => {
+    const fetchRoomDetails = async () => {
+      try {
+        if (!roomCode) return;
+        const res = await api.get(`/livequizzes/rooms/${roomCode}`);
+        
+        if (res.data.success && res.data.room?.controls) {
+          const { micBlocked, pollRestricted } = res.data.room.controls;
+          
+          if (micBlocked) {
+            setRoomControlMode('mic-disabled');
+            // Agar mic blocked hai toh state disable kar do
+            setIsRecording(false);
+            setIsListening(false);
+            setIsLiveRecordingActive(false);
+          } else if (pollRestricted) {
+            setRoomControlMode('poll-disabled');
+          } else {
+            setRoomControlMode('full');
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching room details:", error);
+      }
+    };
+
+    fetchRoomDetails();
+  }, [roomCode]);
+
   // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
     if (!window.confirm("Are you sure you want to remove this co-host?")) return;
