@@ -78,7 +78,11 @@ const RoomSchema = new mongoose.Schema({
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   recordingLock: RecordingLockSchema,
   coHosts: [CoHostSchema],
-  coHostInvite: CoHostInviteSchema
+  coHostInvite: CoHostInviteSchema,
+  controls: {
+  micBlocked: { type: Boolean, default: false },
+  pollRestricted: { type: Boolean, default: false }
+}
 });
 
 RoomSchema.index({ teacherId: 1 });
