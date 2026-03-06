@@ -322,6 +322,16 @@ async getYoutubeAudio(@Req() req: Request, @Res() res: Response) {
     return {success:true,...resp}
   }
 
-  
-  
+  // 🔹 Update room controls (Mic, Poll restrictions)
+  @Patch('/:code/controls')
+  async updateRoomControls(
+    @Param('code') roomCode: string,
+    @Body() body: { userId: string; micBlocked?: boolean; pollRestricted?: boolean }
+  ) {
+    const resp = await this.roomService.updateRoomControls(roomCode, body.userId, {
+      micBlocked: body.micBlocked,
+      pollRestricted: body.pollRestricted
+    });
+    return { success: true, ...resp };
+  }
 }

@@ -24,6 +24,10 @@ export interface Room {
   createdAt: Date;
   status: 'active' | 'ended';
   polls: Poll[];
+  controls?: {
+    micBlocked: boolean;
+    pollRestricted: boolean;
+  };
 }
 
 export interface CohostJwtPayload extends JwtPayload {
@@ -37,7 +41,7 @@ export interface GetCohostRoom {
 }
 
 export interface ActiveCohost {
-  userId: string;  
+  userId: string;
   firstName: string;
   lastName: string;
   email: string;
