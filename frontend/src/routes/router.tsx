@@ -34,6 +34,7 @@ import StudentPollAnalysis from '@/pages/student/StudentPollAnalysis'
 import MyPolls from '@/pages/student/MyPolls'
 import RoleSelectionPage from '@/pages/roleselect'
 import CohostInvite from '@/pages/teacher/CohostInvite'
+import Badges from '@/pages/student/Badges'
 
 // Root route with error and notFound handling
 const rootRoute = createRootRoute({
@@ -299,6 +300,13 @@ const studentJoinRoomRoute = createRoute({
   component: JoinPollRoom,
 });
 
+// Student badges route
+const studentBadgesRoute = createRoute({
+  getParentRoute: () => studentLayoutRoute,
+  path: '/badges',
+  component: Badges,
+});
+
 // Student My Poll route
 const studentMyPollRoute = createRoute({
   getParentRoute: () => studentLayoutRoute,
@@ -351,6 +359,7 @@ const routeTree = rootRoute.addChildren([
     studentSettingsRoute,
     studentPollAnalysisRoute,
     studentMyPollRoute,
+    studentBadgesRoute,
   ]),
 ]);
 
