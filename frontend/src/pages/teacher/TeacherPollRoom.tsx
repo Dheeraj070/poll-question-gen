@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
+import { CohostUser } from "@/shared/types";
 
 
 const copyToClipboard = (text: string) => {
@@ -150,18 +151,20 @@ export default function TeacherPollRoom() {
   const [activeSidebarTab, setActiveSidebarTab] = useState<'students' | 'cohosts'>('students');
 
   // Real Cohosts State
-  const [cohosts, setCohosts] = useState<any[]>([]);
-
+  const [cohosts, setCohosts] = useState<CohostUser[]>([]);
+  // Store the room creator's ID for role-based access
+  const [hostId, setHostId] = useState<string | null>(null);
   // 1. Fetch Cohosts API 
   const fetchCohosts = useCallback(async () => {
     try {
-      if (!currentUser?.uid || !roomCode) return;
-      const res = await api.get(`/livequizzes/rooms/cohost/${currentUser.uid}/${roomCode}`);
+      const host = hostId || currentUser?.uid;
+      if (!host || !roomCode) return;
+      const res = await api.get(`/livequizzes/rooms/cohost/${host}/${roomCode}`);
       setCohosts(res.data.activeCohosts || []);
     } catch (error) {
       console.error("Error fetching cohosts:", error);
     }
-  }, [currentUser?.uid, roomCode]);
+  }, [currentUser?.uid, roomCode, hostId,]);
 
   useEffect(() => {
     fetchCohosts();
@@ -212,8 +215,7 @@ export default function TeacherPollRoom() {
     }
   };
 
-  // Store the room creator's ID for role-based access
-  const [hostId, setHostId] = useState<string | null>(null);
+
   const isHost = currentUser?.uid === hostId;
 
   //handle invite cohost
@@ -237,6 +239,40 @@ export default function TeacherPollRoom() {
       toast.error("Failed to create Invite Link");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  //handle cohost mic mute or unmute toggle
+  const handleToggleCohostMic = async (cohostId: string, isMicMuted: boolean) => {
+    if (!cohostId || !currentUser?.uid) return;
+    // instant UI change
+    setCohosts(prev =>
+      prev.map(c =>
+        c.userId === cohostId ? { ...c, isMicMuted } : c
+      )
+    );
+
+    try {
+      await api.patch(`/livequizzes/rooms/cohost/${roomCode}/mic`, {
+        teacherId: currentUser.uid,
+        userId: cohostId,
+        isMicMuted
+      });
+
+      setCohosts(prev =>
+        prev.map(cohost => {
+          const id = cohost.userId;
+          return id === cohostId ? { ...cohost, isMicMuted } : cohost;
+        })
+      );
+    } catch (error) {
+      console.error("Error toggling cohost mic:", error);
+      setCohosts(prev =>
+        prev.map(c =>
+          c.userId === cohostId ? { ...c, isMicMuted:!isMicMuted } : c
+        )
+      );
+      toast.error("Failed to update co-host microphone");
     }
   };
 
@@ -480,6 +516,7 @@ export default function TeacherPollRoom() {
       socket.off('cohost-joined');
       socket.off('cohost-removed');
       socket.off('room-ended');
+      socket.off('cohost-mic-updated');
 
       // Set up new listeners
       socket.on('live-poll-results', handlePollUpdate);
@@ -538,6 +575,16 @@ export default function TeacherPollRoom() {
         }
       });
 
+      socket.on('cohost-mic-updated', (data) => {
+        if (Array.isArray(data?.activeCohosts)) {
+          setCohosts(data.activeCohosts);
+        }
+        if (data?.cohostId === currentUser?.uid) {
+          if (data?.isMicMuted) toast.error('Host muted your microphone');
+          else toast.success('Host unmuted your microphone');
+        }
+      });
+
       socket.on('connect', () => {
         // console.log('Socket connected with ID:', socket.id);
         joinRoom(); // Re-join room on reconnect
@@ -579,6 +626,7 @@ export default function TeacherPollRoom() {
       socket.off('cohost-joined');
       socket.off('cohost-removed');
       socket.off('room-ended');
+      socket.off('cohost-mic-updated');
     };
   }, [roomCode]);
 
@@ -616,6 +664,13 @@ export default function TeacherPollRoom() {
     recordingLockStatus.currentRecorder?.userId !== currentUser?.uid;
   const displayTranscript =
     liveTranscript + (interimTranscript ? " " + interimTranscript : "");
+
+  const isCurrentUserCohostMuted = Boolean(
+    cohosts.find(c => c.userId === currentUser?.uid)?.isMicMuted
+  );
+  const isMicMutedByHost = !isHost && isCurrentUserCohostMuted;
+  const isMicUnavailable = isMicLockedByOtherUser || isMicMutedByHost;
+
 
   // Process pending text chunks sequentially and store results in queuedGeneratedQuestionsRef
   const processPendingQueue = useCallback(async () => {
@@ -750,6 +805,10 @@ export default function TeacherPollRoom() {
   }, []);
 
   const handleRecordingToggle = useCallback(async (isFromOnEnd?: boolean) => {
+    if (isMicMutedByHost) {
+      toast.error("Host has muted your microphone");
+      return;
+    }
     if (isRecording || isFromOnEnd) {
       setIsRecording(false);
       setIsListening(false);
@@ -2062,21 +2121,39 @@ export default function TeacherPollRoom() {
                             <div className="w-2 h-2 rounded-full bg-green-500 mr-2 shrink-0"></div>
                             {!isSidebarCollapsed && (
                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                                {cohost.firstName || cohost.name || "Cohost"}
+                                {cohost.firstName || "Cohost"}
                               </span>
                             )}
                           </div>
 
                           {/* Cross Button (Visible only to Host on hover) */}
                           {isHost && !isSidebarCollapsed && (
-                            <button
-                              // Pass the correct ID format to the removal handler
-                              onClick={() => handleRemoveCohost(cohost.userId || cohost.id || cohost._id)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
-                              title="Remove Co-host"
-                            >
-                              <X size={14} />
-                            </button>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() =>
+                                  handleToggleCohostMic(
+                                    cohost.userId,
+                                    !(cohost.isMicMuted ?? false)
+                                  )
+                                }
+                                className={`p-1 rounded transition-colors ${cohost.isMicMuted
+                                  ? 'text-amber-600 hover:bg-amber-50'
+                                  : 'text-emerald-600 hover:bg-emerald-50'
+                                  }`}
+                                title={cohost.isMicMuted ? 'Unmute Co-host Mic' : 'Mute Co-host Mic'}
+                              >
+                                {cohost.isMicMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                              </button>
+
+                              <button
+                                // Pass the correct ID format to the removal handler
+                                onClick={() => handleRemoveCohost(cohost?.userId)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all duration-200"
+                                title="Remove Co-host"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))
@@ -2619,12 +2696,25 @@ export default function TeacherPollRoom() {
                             <CardContent className="space-y-6">
 
                               <div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-transparent">
-                                {isMicLockedByOtherUser && (
-                                  <div role="alert" className="w-full max-w-xl mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                                {(isMicMutedByHost || isMicLockedByOtherUser) && (
+                                  <div
+                                    role="alert"
+                                    className={`w-full max-w-xl mb-3 rounded-md border px-3 py-2 ${isMicMutedByHost
+                                      ? "border-red-300 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200"
+                                      : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                                      }`}
+                                  >
                                     <div className="flex items-start gap-2">
-                                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                      {isMicMutedByHost ? (
+                                        <MicOff className="h-4 w-4 mt-0.5 shrink-0" />
+                                      ) : (
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                      )}
+
                                       <p className="text-sm">
-                                        {recordingLockStatus.currentRecorder?.userName || "Another user"} is currently using the mic. Recording will be available once they stop.
+                                        {isMicMutedByHost
+                                          ? "Your mic is muted by host. Recording is disabled until host unmutes you."
+                                          : `${recordingLockStatus.currentRecorder?.userName || "Another user"} is currently using the mic. Recording will be available once they stop.`}
                                       </p>
                                     </div>
                                   </div>
@@ -2641,14 +2731,15 @@ export default function TeacherPollRoom() {
                                 )}
                                 <Button
                                   onClick={() => handleRecordingToggle()}
-                                  disabled={roomControlMode === 'mic-disabled' || isMicLockedByOtherUser}
+                                  disabled={roomControlMode === 'mic-disabled' || isMicLockedByOtherUser || isMicUnavailable}
                                   size="lg"
+                                  // disabled={isMicUnavailable}
                                   variant={(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? "destructive" : "default"}
                                   className={`h-20 w-20 md:w-25 md:h-25 rounded-full flex items-center justify-center 
                               bg-gradient-to-r from-purple-500 to-blue-500 text-white 
                               hover:from-purple-600 hover:to-blue-600 shadow-lg 
                               ${(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) && "animate-pulse"} transition-all
-                              ${isMicLockedByOtherUser ? "opacity-50 cursor-not-allowed hover:from-purple-500 hover:to-blue-500" : ""}
+                              ${isMicUnavailable ? "opacity-50 cursor-not-allowed hover:from-purple-500 hover:to-blue-500" : ""}
                               `}
                                 >
                                   {(isRecording && !useWhisper && !useWhisperGGML && !useExternlApi) ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
@@ -3056,6 +3147,7 @@ export default function TeacherPollRoom() {
                                 <Button
                                   onClick={handleGenerateClick}
                                   disabled={
+                                    isMicUnavailable ||
                                     isMicLockedByOtherUser ||
                                     isRecording ||
                                     isListening ||

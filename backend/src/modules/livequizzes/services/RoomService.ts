@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
 import type { Room as RoomType, Poll, PollAnswer, CohostJwtPayload, GetCohostRoom, ActiveCohost } from '../interfaces/PollRoom.js';
 import { UserModel } from '../../../shared/database/models/User.js';
-import {ObjectId} from 'mongodb';
+import { ObjectId } from 'mongodb';
 import { HttpError, NotFoundError } from 'routing-controllers';
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
@@ -159,8 +159,8 @@ export class RoomService {
 
   async endRoom(code: string): Promise<boolean> {
     const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
-    pollSocket?.emitToRoom( code,'room-ended', {
-      message:'Room has ended'
+    pollSocket?.emitToRoom(code, 'room-ended', {
+      message: 'Room has ended'
     });
     return !!updated;
   }
@@ -240,7 +240,7 @@ export class RoomService {
     return updatedRoom
   }
 
-    // Recording lock management
+  // Recording lock management
   async acquireRecordingLock(
     roomCode: string,
     userId: string,
@@ -249,6 +249,17 @@ export class RoomService {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
+    }
+
+    const activeCohost = room.coHosts.find(
+      c => c.userId.toString() === userId && c.isActive
+    );
+
+    if (activeCohost?.isMicMuted) {
+      return {
+        success: false,
+        message: "Host has muted your microphone"
+      };
     }
 
     // Check if recording lock exists and is still valid
@@ -292,7 +303,7 @@ export class RoomService {
     };
   }
 
-    async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
+  async releaseRecordingLock(roomCode: string, userId: string): Promise<{ success: boolean; message: string }> {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -322,7 +333,7 @@ export class RoomService {
     };
   }
 
-    async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
+  async getRecordingLockStatus(roomCode: string): Promise<{ isLocked: boolean; currentRecorder?: { userId: string; userName?: string; lockedSince: Date } }> {
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -349,7 +360,7 @@ export class RoomService {
     };
   }
 
-   //generate cohost invite
+  //generate cohost invite
   async generateCohostInvite(roomCode: string, userId: string): Promise<string> {
 
     const room = await Room.findOne({ roomCode });
@@ -402,6 +413,10 @@ export class RoomService {
       room.coHostInvite.expiresAt < new Date()
     ) {
       throw new HttpError(400, "Invite invalid or expired")
+    }
+
+    if (room.teacherId === userId) {
+      throw new HttpError(400, "Host cannot join as cohost");
     }
 
     const user = await UserModel.findOne({
@@ -535,7 +550,8 @@ export class RoomService {
           firstName: "$cohostUser.firstName",
           lastName: "$cohostUser.lastName",
           email: "$cohostUser.email",
-          addedAt: "$coHosts.addedAt"
+          addedAt: "$coHosts.addedAt",
+          isMicMuted: "$coHosts.isMicMuted"
         }
       }
     ]);
@@ -567,6 +583,47 @@ export class RoomService {
     return { message: 'coHost removed successfully' }
   }
 
+  //mute cohost mic 
+  async setCohostMicMuted(
+    roomCode: string,
+    teacherId: string,
+    userId: string,
+    isMicMuted: boolean
+  ): Promise<{ message: string; isMicMuted: boolean }> {
+    const room = await Room.findOne({ roomCode });
+    if (!room) throw new NotFoundError("Room is not found");
+    if (room.teacherId !== teacherId) {
+      throw new HttpError(403, "Only host can manage co-host microphone");
+    }
+
+    const cohost = room.coHosts.find(c => c.userId === userId && c.isActive);
+    if (!cohost) throw new NotFoundError("Active co-host not found");
+
+    cohost.isMicMuted = isMicMuted;
+
+    let lockReleased = false;
+    if (isMicMuted && room.recordingLock?.userId === userId) {
+      room.recordingLock = null;
+      lockReleased = true;
+      }
+
+    await room.save();
+    if (lockReleased) {
+      pollSocket?.emitToRoom(roomCode, "recording-stopped", { userId });
+    }
+
+    const activeCohosts = await this.getRoomCohosts(teacherId, roomCode);
+    pollSocket?.emitToRoom(roomCode, "cohost-mic-updated", {
+      cohostId: userId,
+      isMicMuted,
+      activeCohosts
+    });
+
+    return {
+      message: isMicMuted ? "Co-host microphone muted" : "Co-host microphone unmuted",
+      isMicMuted
+    };
+  }
   // Update room controls (Mic, Poll restrictions) and emit to clients
   async updateRoomControls(
     roomCode: string, 
@@ -586,9 +643,7 @@ export class RoomService {
     if (controlsUpdate.pollRestricted !== undefined) {
       room.controls.pollRestricted = controlsUpdate.pollRestricted;
     }
-
-    await room.save();
-
+    await room.save()
     // EMIT TO FRONTEND
     pollSocket?.emitToRoom(roomCode, 'roomControlsUpdated', {
       micBlocked: room.controls.micBlocked,
