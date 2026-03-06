@@ -191,6 +191,7 @@ export class RoomService {
       teacherId: roomDoc.teacherId,
       createdAt: roomDoc.createdAt,
       status: roomDoc.status,
+      controls: roomDoc.controls || { micBlocked: false, pollRestricted: false },
       polls: (roomDoc.polls || []).map((p: any): Poll => ({
         _id: p._id.toString(),  // convert ObjectId to string if needed
         question: p.question,
@@ -604,10 +605,9 @@ export class RoomService {
     if (isMicMuted && room.recordingLock?.userId === userId) {
       room.recordingLock = null;
       lockReleased = true;
-    }
+      }
 
     await room.save();
-
     if (lockReleased) {
       pollSocket?.emitToRoom(roomCode, "recording-stopped", { userId });
     }
@@ -624,5 +624,35 @@ export class RoomService {
       isMicMuted
     };
   }
+  // Update room controls (Mic, Poll restrictions) and emit to clients
+  async updateRoomControls(
+    roomCode: string, 
+    userId: string, 
+    controlsUpdate: { micBlocked?: boolean; pollRestricted?: boolean }
+  ): Promise<{ message: string; controls: any }> {
+    
+    const room = await Room.findOne({ roomCode });
+    if (!room) {
+      throw new NotFoundError("Room is not found");
+    }
 
+    // Update the controls if they are provided in the request
+    if (controlsUpdate.micBlocked !== undefined) {
+      room.controls.micBlocked = controlsUpdate.micBlocked;
+    }
+    if (controlsUpdate.pollRestricted !== undefined) {
+      room.controls.pollRestricted = controlsUpdate.pollRestricted;
+    }
+    await room.save()
+    // EMIT TO FRONTEND
+    pollSocket?.emitToRoom(roomCode, 'roomControlsUpdated', {
+      micBlocked: room.controls.micBlocked,
+      pollRestricted: room.controls.pollRestricted
+    });
+
+    return { 
+      message: 'Room controls updated successfully', 
+      controls: room.controls 
+    };
+  }
 }

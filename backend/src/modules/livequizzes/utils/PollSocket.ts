@@ -128,6 +128,16 @@ class PollSocket {
 
       });
 
+      socket.on('update-room-control', ({ roomCode, mode }) => {
+        try {
+          console.log(`Room ${roomCode} control updated to: ${mode} by socket ${socket.id}`);
+          
+          socket.to(roomCode).emit('room-control-updated', { mode });
+        } catch (err) {
+          console.error("update-room-control error", err);
+        }
+      });
+
       socket.on('disconnect', () => {
         this.activeConnections.delete(socket.id);
         console.log(`Socket ${socket.id} disconnected. Active connections: ${this.activeConnections.size}`);
