@@ -50,7 +50,7 @@ const Badges = () => {
         </div>
         <div className="text-right">
           <span className="text-sm font-medium text-gray-500">Total Earned</span>
-          <p className="text-2xl font-bold text-indigo-600">{achievedBadges.length}</p>
+          <p className="text-2xl text-center font-bold text-indigo-600">{achievedBadges.length}</p>
         </div>
       </div>
 
@@ -66,7 +66,6 @@ const Badges = () => {
             <div className="flex items-center gap-2 mb-4">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <h3 className="text-lg font-bold text-gray-800">Earned Badges</h3>
-              <span className="text-sm font-semibold text-emerald-600">{achievedBadges.length}</span>
             </div>
 
             {achievedBadges.length > 0 ? (
@@ -87,7 +86,6 @@ const Badges = () => {
             <div className="flex items-center gap-2 mb-4">
               <Lock className="w-4 h-4 text-slate-600" />
               <h3 className="text-lg font-bold text-gray-800">Unearned Badges</h3>
-              <span className="text-sm font-semibold text-slate-600">{unachievedBadges.length}</span>
             </div>
 
             {unachievedBadges.length > 0 ? (
