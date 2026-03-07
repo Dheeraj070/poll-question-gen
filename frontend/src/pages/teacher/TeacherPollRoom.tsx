@@ -242,6 +242,12 @@ export default function TeacherPollRoom() {
     }
   };
 
+  const LeaveCohost = async (roomCode:string,cohostId:string) =>{
+    socket.emit('cohost-leave',roomCode,cohostId)
+    toast.info("Left the room.");
+    navigate({ to: `/teacher/cohosted-rooms` });
+  }
+
   //handle cohost mic mute or unmute toggle
   const handleToggleCohostMic = async (cohostId: string, isMicMuted: boolean) => {
     if (!cohostId || !currentUser?.uid) return;
@@ -554,7 +560,16 @@ export default function TeacherPollRoom() {
           navigate({ to: '/teacher/cohosted-rooms' });
           return;
         }
-        toast.info('A co-host was removed from the room');
+        toast.info('A co-host was left the room');
+      });
+      socket.on('cohost-left', (data) => {
+        setCohosts(data.activeCohosts || []);
+        if (currentUser?.uid === data.removedUserId) {
+          toast.error('You left the room');
+          navigate({ to: '/teacher/cohosted-rooms' });
+          return;
+        }
+        toast.info('A co-host left the room');
       });
 
       socket.on('room-ended', (data) => {
@@ -2312,6 +2327,17 @@ export default function TeacherPollRoom() {
                       <span className="xs:inline">End Room</span>
                     </Button>
                   </>
+                )}
+                {!isHost && currentUser && (
+                  <Button
+                      onClick={() => LeaveCohost(roomCode,currentUser?.uid)}
+                      variant="destructive"
+                      className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                      // disabled={isEndingRoom}
+                    >
+                      <LogOut size={16} />
+                      <span className="xs:inline">Leave Room</span>
+                    </Button>
                 )}
               </div>
             </div>
