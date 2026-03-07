@@ -5,6 +5,7 @@ import { pollSocket } from '../utils/PollSocket.js';
 import { UserModel } from '#root/shared/database/models/User.js';
 import { evaluateBadges } from '../utils/achievementEngine.js';
 import UserAchievement from '#root/shared/database/models/UserAchievement.js';
+import Badge from '#root/shared/database/models/Badge.js';
 import { updateRoomStats } from '../utils/statsService.js';
 
 interface InMemoryPoll {
@@ -118,8 +119,15 @@ export class PollService {
       responseTime
     });
 
-    // Evaluate badges
-    await evaluateBadges(userId, roomCode, stats);
+    // Evaluate badges and notify room in real time when unlocked
+    const newlyUnlockedBadges = await evaluateBadges(userId, roomCode, stats);
+    if (newlyUnlockedBadges.length > 0) {
+      pollSocket.emitToRoom(roomCode, 'badge-earned', {
+        userId,
+        roomCode,
+        badges: newlyUnlockedBadges,
+      });
+    }
   }
 
   async getPollResults(roomCode: string) {
@@ -206,7 +214,22 @@ export class PollService {
     .populate("badgeId")
     .lean();
 
-    console.log('badges:',badges)
     return badges
+  }
+
+  async getUserAchievementProgress(userId: string) {
+    const [earnedBadgeIds, totalBadges] = await Promise.all([
+      UserAchievement.distinct('badgeId', { userId }),
+      Badge.countDocuments(),
+    ]);
+
+    const earned = earnedBadgeIds.length;
+    const percent = totalBadges > 0 ? Math.round((earned / totalBadges) * 100) : 0;
+
+    return {
+      earned,
+      total: totalBadges,
+      percent,
+    };
   }
 }

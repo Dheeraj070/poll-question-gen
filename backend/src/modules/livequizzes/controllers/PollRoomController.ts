@@ -351,8 +351,15 @@ export class PollRoomController {
   }
 
   //get achievement details
+
   @Get('/achievement/:userId')
   async getUserAchievements(@Param('userId') userId: string) {
     return await this.pollService.getUserAchievements(userId);
   }
+
+    @Get('/achievement/:userId/progress')
+  async getUserAchievementProgress(@Param('userId') userId: string) {
+    return await this.pollService.getUserAchievementProgress(userId);
+  }
+  
 }

@@ -6,6 +6,7 @@ import { checkRule } from "./ruleEvaluator.js";
 export async function evaluateBadges(userId:string, roomCode:string, stats){
 
   const badges = await Badge.find();
+  const newlyUnlocked: any[] = [];
 
   for(const badge of badges){
 
@@ -21,14 +22,19 @@ export async function evaluateBadges(userId:string, roomCode:string, stats){
 
     if(unlocked){
 
-      await UserAchievement.create({
+      const achievement = await UserAchievement.create({
         userId,
         badgeId: badge._id,
         roomCode
       });
 
+      const populated = await achievement.populate("badgeId");
+      newlyUnlocked.push(populated.toObject());
+
     }
 
   }
+
+  return newlyUnlocked;
 
 }
