@@ -2,8 +2,9 @@ import { Server } from 'socket.io';
 import { RoomService } from '../services/RoomService.js';  // adjust the path as needed
 import dotenv from 'dotenv';
 import { UserService } from '#root/modules/users/services/UserService.js';
-import { getFromContainer } from 'routing-controllers';
+import { getFromContainer, NotFoundError } from 'routing-controllers';
 import { UserRepository } from '#root/shared/index.js';
+import { Room } from '#root/shared/database/models/Room.js';
 
 dotenv.config();
 const appOrigins = process.env.APP_ORIGINS;
@@ -137,6 +138,26 @@ class PollSocket {
           console.error("update-room-control error", err);
         }
       });
+
+      socket.on('cohost-leave',async (roomCode:string,cohostId:string) => {
+        const room = await Room.findOne({ roomCode });
+        const teacherId = room.teacherId
+            if (!room) {
+              throw new NotFoundError("Room is not found")
+            }
+            room.coHosts.forEach(c => {
+              if (c.userId === cohostId) {
+                c.isActive = false;
+              }
+            });
+            await room.save();
+            // Get updated cohost list
+            const activeCohosts = await this.roomService.getRoomCohosts(teacherId, roomCode);
+            this.emitToRoom(roomCode, 'cohost-left', {
+              removedUserId: cohostId,
+              activeCohosts: activeCohosts
+            });
+      })
 
       socket.on('disconnect', () => {
         this.activeConnections.delete(socket.id);
