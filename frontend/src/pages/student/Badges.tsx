@@ -61,7 +61,7 @@ const Badges = () => {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
           <Star className="w-12 h-12 text-gray-300 mb-4" />
-          <p className="text-gray-500 font-medium">No achievements yet. Start playing!</p>
+          <p className="text-gray-500 font-medium">No achievements yet.</p>
         </div>
       )}
     </section>
