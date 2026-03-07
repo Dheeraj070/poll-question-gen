@@ -1,3 +1,4 @@
+import { getBadgeTier } from "@/shared/getBadgeTier";
 import { UserAchievement } from "@/shared/types";
 import { Award, Medal, Trophy, Sparkles } from "lucide-react"
 
@@ -6,35 +7,6 @@ interface Props {
 }
 
 export default function BadgeCard({ badge }: Props) {
-    // Logic to determine icon and color based on category or name
-    const getBadgeTier = (category = "") => {
-        const cat = category.toLowerCase();
-        if (cat.includes("engagement") || cat.includes("speed")) {
-            return {
-                bg: "bg-amber-50 border-amber-100",
-                iconContainer: "bg-gradient-to-br from-amber-400 to-yellow-600",
-                text: "text-amber-800",
-                categoryText: "text-amber-600/70",
-                Icon: Trophy,
-            };
-        }
-        if (cat.includes("performance") || cat.includes("milestone")) {
-            return {
-                bg: "bg-slate-50 border-slate-200",
-                iconContainer: "bg-gradient-to-br from-slate-300 to-slate-500",
-                text: "text-slate-800",
-                categoryText: "text-slate-500",
-                Icon: Medal,
-            };
-        }
-        return {
-            bg: "bg-indigo-50/30 border-indigo-100/50",
-            iconContainer: "bg-gradient-to-br from-indigo-400 to-purple-500",
-            text: "text-indigo-900",
-            categoryText: "text-indigo-500",
-            Icon: Award,
-        };
-    };
 
     const tier = getBadgeTier(badge.badgeId?.category);
     const Icon = tier.Icon;
