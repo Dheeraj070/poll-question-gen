@@ -1,6 +1,6 @@
 import { getBadgeTier } from "@/shared/getBadgeTier";
 import { UserAchievement } from "@/shared/types";
-import { Award, Medal, Trophy, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 
 interface Props {
     badge: UserAchievement;
