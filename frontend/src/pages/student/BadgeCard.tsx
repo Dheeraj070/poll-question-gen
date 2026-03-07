@@ -8,7 +8,7 @@ interface Props {
 
 export default function BadgeCard({ badge }: Props) {
 
-    const tier = getBadgeTier(badge.badgeId?.category);
+    const tier = getBadgeTier(badge.badgeId?.category, badge.badgeId?.name);
     const Icon = tier.Icon;
     return (
         <div
@@ -22,7 +22,7 @@ export default function BadgeCard({ badge }: Props) {
                 {/* Icon Wrapper with Ring Effect */}
                 <div className="relative mb-3">
                     <div className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transform transition-transform duration-300 ${tier.iconContainer}`}>
-                        <Icon className="w-7 h-7 text-white" />
+                        <Icon className={`w-7 h-7 ${tier.iconColor}`} />
                     </div>
                     {/* Level Indicator or Sparkle */}
                     <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">

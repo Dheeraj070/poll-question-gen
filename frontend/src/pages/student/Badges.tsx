@@ -91,7 +91,7 @@ const Badges = () => {
             {unachievedBadges.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {unachievedBadges.map((badge) => {
-                  const tier = getBadgeTier(badge.category);
+                  const tier = getBadgeTier(badge.category, badge.name);
                   const Icon = tier.Icon;
                   return (
                     <div
@@ -100,7 +100,7 @@ const Badges = () => {
                     >
                       <div className="relative mb-3">
                         <div className={`flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br ${tier.iconContainer} grayscale`}>
-                          <Icon className="w-7 h-7 text-white" />
+                          <Icon className={`w-7 h-7 ${tier.iconColor}`} />
                         </div>
                         <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">
                           <Lock className="w-3 h-3 text-slate-500" />

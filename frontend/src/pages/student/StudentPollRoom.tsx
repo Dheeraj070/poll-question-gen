@@ -342,7 +342,7 @@ export default function StudentPollRoom() {
 
   const activeLivePolls = livePolls.filter(p => answeredPolls[p._id] === undefined);
   const answeredLivePolls = livePolls.filter(p => answeredPolls[p._id] !== undefined);
-  const popupTier = newBadgePopup ? getBadgeTier(newBadgePopup.badgeId?.category) : null;
+  const popupTier = newBadgePopup ? getBadgeTier(newBadgePopup.badgeId?.category, newBadgePopup.badgeId?.name) : null;
 
   if (!roomCode) return <div>Loading...</div>;
 
@@ -363,7 +363,7 @@ export default function StudentPollRoom() {
                 <div className={`relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br ${popupTier?.iconContainer}`}>
                   {(() => {
                     const PopupIcon = popupTier?.Icon || Award;
-                    return <PopupIcon className="w-6 h-6 text-white" />;
+                    return <PopupIcon className={`w-6 h-6 ${popupTier?.iconColor || "text-white"}`} />;
                   })()}
                   <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">
                     <Sparkles className="w-3 h-3 text-yellow-500" />
@@ -402,7 +402,7 @@ export default function StudentPollRoom() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-200/50 dark:border-purple-700/50">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-linear-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-200/50 dark:border-purple-700/50">
               <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               <span className="text-lg font-semibold text-purple-700 dark:text-purple-300">
                 Live Poll Session
