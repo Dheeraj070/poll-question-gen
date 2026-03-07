@@ -2,19 +2,28 @@ import { useCallback, useEffect, useState } from "react";
 import BadgeCard from "./BadgeCard";
 import { useAuthStore } from "@/lib/store/auth-store";
 import api from "@/lib/api/api";
-import { ShieldCheck, Star } from "lucide-react";
+import { Lock, ShieldCheck, Star } from "lucide-react";
+import type { Badge, UserAchievement } from "@/shared/types";
+import { getBadgeTier } from "@/shared/getBadgeTier";
+
+type BadgeResponse = {
+  achievedBadges: UserAchievement[];
+  unachievedBadges: Badge[];
+};
 
 const Badges = () => {
 
-  const [badges, setBadges] = useState([]);
+  const [achievedBadges, setAchievedBadges] = useState<UserAchievement[]>([]);
+  const [unachievedBadges, setUnachievedBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(false);
   const { user: currentUser } = useAuthStore();
 
   const getUserBadges = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await api.get(`/livequizzes/rooms/achievement/${currentUser?.uid}`);
-      setBadges(res.data || []);
+      const res = await api.get<BadgeResponse>(`/livequizzes/rooms/achievement/${currentUser?.uid}`);
+      setAchievedBadges(res.data?.achievedBadges || []);
+      setUnachievedBadges(res.data?.unachievedBadges || []);
     } catch (error) {
       console.error("Error fetching badges:", error);
     } finally {
@@ -41,27 +50,82 @@ const Badges = () => {
         </div>
         <div className="text-right">
           <span className="text-sm font-medium text-gray-500">Total Earned</span>
-          <p className="text-2xl font-bold text-indigo-600">{badges.length}</p>
+          <p className="text-2xl font-bold text-indigo-600">{achievedBadges.length}</p>
         </div>
       </div>
 
-      {/* Grid Container */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-44 rounded-2xl bg-gray-200 animate-pulse" />
           ))}
         </div>
-      ) : badges.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {badges.map((b: any) => (
-            <BadgeCard key={b._id} badge={b} />
-          ))}
-        </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-          <Star className="w-12 h-12 text-gray-300 mb-4" />
-          <p className="text-gray-500 font-medium">No achievements yet.</p>
+        <div className="space-y-10">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-lg font-bold text-gray-800">Earned Badges</h3>
+              <span className="text-sm font-semibold text-emerald-600">{achievedBadges.length}</span>
+            </div>
+
+            {achievedBadges.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {achievedBadges.map((badge) => (
+                  <BadgeCard key={badge._id} badge={badge} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-14 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                <Star className="w-10 h-10 text-gray-300 mb-3" />
+                <p className="text-gray-500 font-medium">No earned badges yet.</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Lock className="w-4 h-4 text-slate-600" />
+              <h3 className="text-lg font-bold text-gray-800">Unearned Badges</h3>
+              <span className="text-sm font-semibold text-slate-600">{unachievedBadges.length}</span>
+            </div>
+
+            {unachievedBadges.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {unachievedBadges.map((badge) => {
+                  const tier = getBadgeTier(badge.category);
+                  const Icon = tier.Icon;
+                  return (
+                    <div
+                      key={badge._id}
+                      className="relative flex flex-col items-center justify-center p-5 rounded-2xl border bg-slate-100/70 border-slate-200 opacity-75"
+                    >
+                      <div className="relative mb-3">
+                        <div className={`flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br ${tier.iconContainer} grayscale`}>
+                          <Icon className="w-7 h-7 text-white" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">
+                          <Lock className="w-3 h-3 text-slate-500" />
+                        </div>
+                      </div>
+
+                      <span className="text-sm font-bold text-center leading-tight mb-1 text-slate-700">
+                        {badge.name}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/80 border border-slate-200 text-slate-500">
+                        {badge.category}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-14 bg-white rounded-2xl border-2 border-dashed border-emerald-200">
+                <ShieldCheck className="w-10 h-10 text-emerald-400 mb-3" />
+                <p className="text-emerald-600 font-semibold">All badges unlocked.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

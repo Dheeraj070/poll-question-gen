@@ -208,14 +208,21 @@ export class PollService {
     };
   }
 
-  async getUserAchievements(userId: string) {
-    const badges = await UserAchievement
-    .find({ userId })
-    .populate("badgeId")
-    .lean();
-
-    return badges
-  }
+ async getUserAchievements(userId: string) {
+  const [achievedBadges, allBadges] = await Promise.all([
+    UserAchievement.find({ userId })
+      .populate("badgeId")
+      .lean(),
+    Badge.find().lean()
+  ]);
+   const achievedBadgeIds = achievedBadges.map(
+    a => a.badgeId._id.toString()
+  );
+  const unachievedBadges = allBadges.filter(
+    badge => !achievedBadgeIds.includes(badge._id.toString())
+  );
+  return { achievedBadges, unachievedBadges };
+}
 
   async getUserAchievementProgress(userId: string) {
     const [earnedBadgeIds, totalBadges] = await Promise.all([
