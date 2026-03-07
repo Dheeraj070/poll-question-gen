@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import { Room } from '../../../shared/database/models/Room.js';
 import { pollSocket } from '../utils/PollSocket.js';
 import { UserModel } from '#root/shared/database/models/User.js';
+import { evaluateBadges } from '../utils/achievementEngine.js';
+import UserAchievement from '#root/shared/database/models/UserAchievement.js';
+import { updateRoomStats } from '../utils/statsService.js';
 
 interface InMemoryPoll {
   pollId: string;
@@ -16,6 +19,7 @@ interface InMemoryPoll {
   startTime?: number;
   timeLeft: number;
   roomCode: string;
+  createdAt?: Date;
 }
 
 @injectable()
@@ -30,14 +34,14 @@ export class PollService {
     timer?: number;
   }) {
     const pollId = crypto.randomUUID();
-
+    const createdAt = new Date();
     const poll = {
       _id: pollId,
       question: data.question,
       options: data.options,
       correctOptionIndex: data.correctOptionIndex,
       timer: data.timer ?? 30,
-      createdAt: new Date(),
+      createdAt,
       answers: []
     };
 
@@ -52,6 +56,7 @@ export class PollService {
       timer: data.timer ?? 0, // 0 means no timer
       timeLeft: data.timer ?? 0,
       roomCode,
+      createdAt,
     };
 
     await Room.updateOne(
@@ -73,7 +78,7 @@ export class PollService {
     if (!poll || poll.roomCode !== roomCode) {
       throw new Error('Poll not found or invalid room');
     }
-
+    console.log('poll:',poll)
     // Update in-memory response tracking
     const previousResponse = poll.userResponses.get(userId);
 
@@ -93,10 +98,28 @@ export class PollService {
     // Emit update to all clients
     this.emitPollUpdate(roomCode, pollId);
 
+    const answeredAt = new Date();
     await Room.updateOne(
       { roomCode, "polls._id": pollId },
-      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt: new Date() } } }
+      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt } } }
     );
+
+    // Determine correctness
+    const isCorrect = poll.correctOptionIndex === answerIndex;
+
+    // Calculate response time (seconds)
+    const responseTime = (answeredAt.getTime() - poll.createdAt.getTime()) / 1000;
+
+    // Update room stats
+    const stats = await updateRoomStats({
+      userId,
+      roomCode,
+      isCorrect,
+      responseTime
+    });
+
+    // Evaluate badges
+    await evaluateBadges(userId, roomCode, stats);
   }
 
   async getPollResults(roomCode: string) {
@@ -175,5 +198,15 @@ export class PollService {
       userResponses,
       roomCode: poll.roomCode,
     };
+  }
+
+  async getUserAchievements(userId: string) {
+    const badges = await UserAchievement
+    .find({ userId })
+    .populate("badgeId")
+    .lean();
+
+    console.log('badges:',badges)
+    return badges
   }
 }
