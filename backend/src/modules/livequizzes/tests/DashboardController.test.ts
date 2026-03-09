@@ -20,7 +20,8 @@ export class InversifyAdapter implements IocAdapter {
 
 const mockDashboardService = {
     getStudentDashboardData: vi.fn(),
-    getTeacherDashboardData: vi.fn()
+    getTeacherDashboardData: vi.fn(),
+    getUserAchievementProgress: vi.fn(),
 };
 
 // Mock HttpErrorHandler if needed

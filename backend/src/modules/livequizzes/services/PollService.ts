@@ -228,19 +228,4 @@ export class PollService {
   return { achievedBadges, unachievedBadges };
 }
 
-  async getUserAchievementProgress(userId: string) {
-    const [earnedBadgeIds, totalBadges] = await Promise.all([
-      UserAchievement.distinct('badgeId', { userId }),
-      Badge.countDocuments(),
-    ]);
-
-    const earned = earnedBadgeIds.length;
-    const percent = totalBadges > 0 ? Math.round((earned / totalBadges) * 100) : 0;
-
-    return {
-      earned,
-      total: totalBadges,
-      percent,
-    };
-  }
 }

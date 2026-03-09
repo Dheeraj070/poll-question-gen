@@ -97,7 +97,7 @@ export default function StudentDashboard() {
       if (!user?.uid) return;
   
       try {
-        const res = await api.get(`/livequizzes/rooms/achievement/${user.uid}/progress`);
+        const res = await api.get(`/students/dashboard/achievement/${user.uid}/progress`);
         setAchievementProgress({
           earned: res.data?.earned || 0,
           total: res.data?.total || 0,
