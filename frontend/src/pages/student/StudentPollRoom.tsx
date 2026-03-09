@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import Confetti from "react-confetti";
 import { Zap, Users, Info, History, LogOut, Clock, CheckCircle, Circle, Trophy, X, AlertCircle, BookOpen, ChevronDown, ChevronUp, ArrowLeft, ShieldCheck, Award, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import api from "@/lib/api/api";
@@ -70,6 +71,7 @@ export default function StudentPollRoom() {
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [newBadgePopup, setNewBadgePopup] = useState<UserAchievement | null>(null);
   const [badgePopupQueue, setBadgePopupQueue] = useState<UserAchievement[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
   const email = useAuthStore((state) => state.user?.email)
   useEffect(() => {
   socket.on("room-data", (room) => {
@@ -220,8 +222,14 @@ export default function StudentPollRoom() {
 
   useEffect(() => {
     if (!newBadgePopup) return;
-    const timeout = setTimeout(() => setNewBadgePopup(null), 4000);
-    return () => clearTimeout(timeout);
+    setShowConfetti(true);
+    toast.success(`Badge earned: ${newBadgePopup.badgeId?.name || "Achievement unlocked"}`);
+    const popupTimeout = setTimeout(() => setNewBadgePopup(null), 4000);
+    const confettiTimeout = setTimeout(() => setShowConfetti(false), 2500);
+    return () => {
+      clearTimeout(popupTimeout);
+      clearTimeout(confettiTimeout);
+    };
   }, [newBadgePopup]);
 
   const submitAnswer = async (pollId: string, answerIndex: number) => {
@@ -322,6 +330,11 @@ export default function StudentPollRoom() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-violet-900/20 dark:to-purple-900/20">
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-40">
+          <Confetti recycle={false} numberOfPieces={260} />
+        </div>
+      )}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
