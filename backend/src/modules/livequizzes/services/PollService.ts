@@ -209,18 +209,22 @@ export class PollService {
   }
 
  async getUserAchievements(userId: string) {
-  const [achievedBadges, allBadges] = await Promise.all([
+  const [achievedBadgesRaw, allBadges] = await Promise.all([
     UserAchievement.find({ userId })
       .populate("badgeId")
       .lean(),
     Badge.find().lean()
   ]);
-   const achievedBadgeIds = achievedBadges.map(
-    a => a.badgeId._id.toString()
+
+  const achievedBadges = achievedBadgesRaw.filter((a: any) => a?.badgeId?._id);
+  const achievedBadgeIds = new Set(
+    achievedBadges.map((a: any) => a.badgeId._id.toString())
   );
+
   const unachievedBadges = allBadges.filter(
-    badge => !achievedBadgeIds.includes(badge._id.toString())
+    badge => !achievedBadgeIds.has(badge._id.toString())
   );
+
   return { achievedBadges, unachievedBadges };
 }
 
