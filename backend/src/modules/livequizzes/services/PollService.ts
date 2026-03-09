@@ -79,7 +79,7 @@ export class PollService {
     if (!poll || poll.roomCode !== roomCode) {
       throw new Error('Poll not found or invalid room');
     }
-    console.log('poll:',poll)
+
     // Update in-memory response tracking
     const previousResponse = poll.userResponses.get(userId);
 
