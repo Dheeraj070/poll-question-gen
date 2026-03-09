@@ -2,7 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Bar } from "recharts";
 import { useState, useEffect } from "react";
-import { BookOpen, TrendingUp, Calendar, Trophy, Clock, CheckCircle, BarChart2, AlertCircle } from "lucide-react";
+import { BookOpen, TrendingUp, Calendar, Trophy, Clock, CheckCircle, BarChart2, AlertCircle, ShieldCheck, ArrowRightCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useNavigate } from "@tanstack/react-router";
 import api from "@/lib/api/api";
@@ -63,6 +63,7 @@ export default function StudentDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [localActiveRoom, setLocalActiveRoom] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [achievementProgress, setAchievementProgress] = useState({ earned: 0, total: 0, percent: 0 });
 
   useEffect(() => {
     const activeRoomCode = localStorage.getItem("activeRoomCode");
@@ -92,9 +93,25 @@ export default function StudentDashboard() {
     }
   };
 
+  const fetchAchievementProgress = async () => {
+      if (!user?.uid) return;
+  
+      try {
+        const res = await api.get(`/livequizzes/rooms/achievement/${user.uid}/progress`);
+        setAchievementProgress({
+          earned: res.data?.earned || 0,
+          total: res.data?.total || 0,
+          percent: res.data?.percent || 0,
+        });
+      } catch (e) {
+        console.error("Failed to load achievement progress:", e);
+      }
+    };
+
   useEffect(() => {
     if (user?.uid) {
       fetchDashboardData();
+      fetchAchievementProgress();
     }
   }, [user?.uid]);
 
@@ -549,6 +566,45 @@ export default function StudentDashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl shadow-indigo-500/10">
+         <CardHeader>
+            <CardTitle className="text-blue-800 dark:text-blue-200 font-bold flex items-center justify-between gap-2 text-sm sm:text-base">
+              <span className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Achievements
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate({ to: '/student/badges' })}
+                className="group inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                aria-label="Go to badges page"
+                title="Go to badges"
+              >
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[120px] group-hover:opacity-100 text-xs font-semibold">
+                  Your achievements
+                </span>
+                <ArrowRightCircle className="h-5 w-5" />
+              </button>
+            </CardTitle>
+          </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-300">
+                        {achievementProgress.earned}/{achievementProgress.total}
+                      </span>
+                    </div>
+                    <div className="relative h-3 rounded-full bg-linear-to-r from-slate-200 to-slate-300 dark:from-gray-700 dark:to-gray-600 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-linear-to-r from-indigo-500 via-blue-500 to-emerald-500 transition-all duration-700"
+                        style={{ width: `${achievementProgress.percent}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Progress</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-300">{achievementProgress.percent}% complete</span>
+                    </div>
+                  </CardContent>
+                </Card>
       </div>
     </div>
   );
