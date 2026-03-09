@@ -2,8 +2,19 @@ import Badge from "#root/shared/database/models/Badge.js";
 import UserAchievement from "#root/shared/database/models/UserAchievement.js";
 import { checkRule } from "./ruleEvaluator.js";
 
+export type UserRoomStats = {
+  userId: string;
+  roomCode: string;
+  totalAnswers: number;
+  correctAnswers: number;
+  currentStreak: number;
+  maxStreak: number;
+  accuracy: number;
+  fastestResponse: number | null;
+}
 
-export async function evaluateBadges(userId:string, roomCode:string, stats){
+
+export async function evaluateBadges(userId:string, roomCode:string, stats: UserRoomStats){
 
   const badges = await Badge.find();
   const newlyUnlocked: any[] = [];

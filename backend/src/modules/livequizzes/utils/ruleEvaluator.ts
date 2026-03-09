@@ -1,6 +1,13 @@
-export function checkRule(rule, stats){
+import { UserRoomStats } from "./achievementEngine.js";
 
-  switch(rule.type){
+type Rule = {
+  type: string;
+  threshold: number;
+}
+
+export function checkRule(rule: Rule, stats: UserRoomStats): boolean {
+
+  switch (rule.type) {
 
     case "correct_streak":
       return stats.maxStreak >= rule.threshold;
