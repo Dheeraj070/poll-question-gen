@@ -220,7 +220,6 @@ export default function StudentPollRoom() {
 
   useEffect(() => {
     if (!newBadgePopup) return;
-    toast.success(`Badge earned: ${newBadgePopup.badgeId?.name || "Achievement unlocked"}`);
     const timeout = setTimeout(() => setNewBadgePopup(null), 4000);
     return () => clearTimeout(timeout);
   }, [newBadgePopup]);
