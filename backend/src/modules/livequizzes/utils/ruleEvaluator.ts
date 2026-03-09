@@ -5,6 +5,8 @@ type Rule = {
   threshold: number;
 }
 
+const MIN_ANSWERS_FOR_ACCURACY = 100;
+
 export function checkRule(rule: Rule, stats: UserRoomStats): boolean {
 
   switch (rule.type) {
@@ -13,7 +15,10 @@ export function checkRule(rule: Rule, stats: UserRoomStats): boolean {
       return stats.maxStreak >= rule.threshold;
 
     case "accuracy":
-      return stats.accuracy >= rule.threshold;
+      return (
+        stats.accuracy >= rule.threshold &&
+        stats.totalAnswers >= MIN_ANSWERS_FOR_ACCURACY
+      );
 
     case "questions_answered":
       return stats.totalAnswers >= rule.threshold;
