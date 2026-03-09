@@ -70,7 +70,6 @@ export default function StudentPollRoom() {
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [newBadgePopup, setNewBadgePopup] = useState<UserAchievement | null>(null);
   const [badgePopupQueue, setBadgePopupQueue] = useState<UserAchievement[]>([]);
-  const [achievementProgress, setAchievementProgress] = useState({ earned: 0, total: 0, percent: 0 });
   const email = useAuthStore((state) => state.user?.email)
   useEffect(() => {
   socket.on("room-data", (room) => {
@@ -118,12 +117,6 @@ export default function StudentPollRoom() {
       socket.on('badge-earned', (data: { userId: string; badges?: UserAchievement[] }) => {
         if (data?.userId !== user?.uid) return;
         const unlocked = data.badges || [];
-        if (unlocked.length === 0) return;
-        setAchievementProgress((prev) => {
-          const nextEarned = Math.min(prev.earned + unlocked.length, prev.total || prev.earned + unlocked.length);
-          const nextPercent = prev.total > 0 ? Math.round((nextEarned / prev.total) * 100) : 0;
-          return { ...prev, earned: nextEarned, percent: nextPercent };
-        });
         setBadgePopupQueue((prev) => [...prev, ...unlocked]);
       });
 
@@ -218,24 +211,6 @@ export default function StudentPollRoom() {
     }
   };
 
-  const loadAchievementProgress = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      const res = await api.get(`/livequizzes/rooms/achievement/${user.uid}/progress`);
-      setAchievementProgress({
-        earned: res.data?.earned || 0,
-        total: res.data?.total || 0,
-        percent: res.data?.percent || 0,
-      });
-    } catch (e) {
-      console.error("Failed to load achievement progress:", e);
-    }
-  }, [user?.uid]);
-
-  useEffect(() => {
-    loadAchievementProgress();
-  }, [loadAchievementProgress]);
 
   useEffect(() => {
     if (newBadgePopup || badgePopupQueue.length === 0) return;
@@ -497,31 +472,6 @@ export default function StudentPollRoom() {
             </div>
           )}
         </div>
-
-        <Card className="mb-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-0 shadow-xl shadow-indigo-500/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Achievements</span>
-              </div>
-              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-300">
-                {achievementProgress.earned}/{achievementProgress.total}
-              </span>
-            </div>
-            <div className="relative h-3 rounded-full bg-linear-to-r from-slate-200 to-slate-300 dark:from-gray-700 dark:to-gray-600 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-linear-to-r from-indigo-500 via-blue-500 to-emerald-500 transition-all duration-700"
-                style={{ width: `${achievementProgress.percent}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className="text-gray-500 dark:text-gray-400">Progress</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-300">{achievementProgress.percent}% complete</span>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="flex gap-8">
           <div className="flex-1 space-y-8">
             {/* Active Live Polls */}
