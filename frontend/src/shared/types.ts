@@ -13,6 +13,7 @@ export interface Badge {
   description: string;
   icon: string;
   category: "performance" | "engagement" | "speed" | "milestone";
+  criteria: string;
 }
 
 export interface UserAchievement {

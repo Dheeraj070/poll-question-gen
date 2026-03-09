@@ -96,7 +96,7 @@ const Badges = () => {
                   return (
                     <div
                       key={badge._id}
-                      className="relative flex flex-col items-center justify-center p-5 rounded-2xl border bg-slate-100/70 border-slate-200 opacity-75"
+                      className="group relative flex flex-col items-center justify-center p-5 rounded-2xl border bg-slate-100/70 border-slate-200 opacity-75"
                     >
                       <div className="relative mb-3">
                         <div className={`flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br ${tier.iconContainer} grayscale`}>
@@ -113,6 +113,10 @@ const Badges = () => {
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/80 border border-slate-200 text-slate-500">
                         {badge.category}
                       </span>
+
+                      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-52 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                        {badge.criteria || "Complete more polls to unlock this badge."}
+                      </div>
                     </div>
                   );
                 })}

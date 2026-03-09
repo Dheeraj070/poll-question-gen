@@ -35,10 +35,9 @@ const BadgeSchema = new mongoose.Schema({
     }
   },
 
-  scope: {
+  criteria: {
     type: String,
-    enum: ["session","global"],
-    default: "session"
+    default: ""
   }
 
 },{timestamps:true});
