@@ -4,6 +4,7 @@ export interface PollAnswer {
   userId: string;
   answerIndex: number;
   answeredAt: Date;
+  points?: number;
 }
 
 export interface Poll {
