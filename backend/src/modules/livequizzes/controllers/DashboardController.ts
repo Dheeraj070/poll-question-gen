@@ -25,4 +25,11 @@ export class DashboardController {
     async getTeacherDashboard(@Param('teacherId') teacherId: string) {
         return await this.dashboardService.getTeacherDashboardData(teacherId);
     }
+
+    // User Achievement Progress
+    @Get('/students/dashboard/achievement/:userId/progress')
+  async getUserAchievementProgress(@Param('userId') userId: string) {
+    return await this.dashboardService.getUserAchievementProgress(userId);
+  }
+
 }

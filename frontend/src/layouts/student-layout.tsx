@@ -7,6 +7,7 @@ import { logout } from "@/lib/api/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LogOut, Home, Users, User, ChevronDown,
+  Award,
   // Settings 
 } from "lucide-react";
 import {
@@ -104,6 +105,22 @@ export default function StudentLayout() {
               <Link to="/student/pollroom">
                 <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 <span className="relative z-10 hidden sm:inline">Join Room</span>
+              </Link>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`relative h-8 sm:h-10 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all duration-300 ${isActiveRoute('/student/badges')
+                ? 'bg-blue-50 text-blue-800 border border-blue-200 shadow-sm dark:bg-blue-900/30 dark:text-blue-100 dark:border-blue-800'
+                : 'text-slate-700 hover:bg-blue-50 hover:text-blue-800 border border-transparent dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-100'
+                }`}
+              asChild
+              data-tour="badges-nav"
+            >
+              <Link to="/student/badges">
+                <Award className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="relative z-10 hidden sm:inline">Achievements</span>
               </Link>
             </Button>
 

@@ -349,4 +349,12 @@ export class PollRoomController {
     });
     return { success: true, ...resp };
   }
+
+  //get achievement details
+
+  @Get('/achievement/:userId')
+  async getUserAchievements(@Param('userId') userId: string) {
+    return await this.pollService.getUserAchievements(userId);
+  }
+  
 }

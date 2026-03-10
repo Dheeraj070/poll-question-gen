@@ -1,5 +1,7 @@
 import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
+import UserAchievement from '#root/shared/database/models/UserAchievement.js';
+import Badge from '#root/shared/database/models/Badge.js';
 
 @injectable()
 export class DashboardService {
@@ -165,4 +167,21 @@ export class DashboardService {
             ]
         };
     }
+
+    //get user achievement progress
+    async getUserAchievementProgress(userId: string) {
+    const [earnedBadgeIds, totalBadges] = await Promise.all([
+      UserAchievement.distinct('badgeId', { userId }),
+      Badge.countDocuments(),
+    ]);
+
+    const earned = earnedBadgeIds.length;
+    const percent = totalBadges > 0 ? Math.round((earned / totalBadges) * 100) : 0;
+
+    return {
+      earned,
+      total: totalBadges,
+      percent,
+    };
+  }
 }

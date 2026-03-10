@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Zap, Users, Info, History, LogOut, Clock, CheckCircle, Circle, Trophy, X, AlertCircle, BookOpen, ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
+import Confetti from "react-confetti";
+import { Zap, Users, Info, History, LogOut, Clock, CheckCircle, Circle, Trophy, X, AlertCircle, BookOpen, ChevronDown, ChevronUp, ArrowLeft, ShieldCheck, Award, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/hooks/use-auth";
 import api from "@/lib/api/api";
 import socket from "@/lib/api/socket";
 import { useAuthStore } from "@/lib/store/auth-store";
+import type { UserAchievement } from "@/shared/types";
+import { getBadgeTier } from "@/shared/getBadgeTier";
 
 //const Socket_URL = import.meta.env.VITE_SOCKET_URL;
 //const socket = io(Socket_URL);
@@ -47,6 +50,8 @@ type RoomDetails = {
   room?: Room;
 };
 
+
+
 export default function StudentPollRoom() {
   const params = useParams({ from: '/student/pollroom/$code' });
   const roomCode = params.code;
@@ -64,6 +69,9 @@ export default function StudentPollRoom() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showAllPolls, setShowAllPolls] = useState(false);
   const [showRoomDetails, setShowRoomDetails] = useState(false);
+  const [newBadgePopup, setNewBadgePopup] = useState<UserAchievement | null>(null);
+  const [badgePopupQueue, setBadgePopupQueue] = useState<UserAchievement[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
   const email = useAuthStore((state) => state.user?.email)
   useEffect(() => {
   socket.on("room-data", (room) => {
@@ -93,6 +101,7 @@ export default function StudentPollRoom() {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('live-poll-results');  
+      socket.off('badge-earned');
 
       socket.on("new-poll", (poll: Poll) => {
         setLivePolls(prev => [...prev, poll]);
@@ -106,6 +115,12 @@ export default function StudentPollRoom() {
       socket.on('live-poll-results',()=>{
         loadRoomDetails(roomCode)   
       })
+
+      socket.on('badge-earned', (data: { userId: string; badges?: UserAchievement[] }) => {
+        if (data?.userId !== user?.uid) return;
+        const unlocked = data.badges || [];
+        setBadgePopupQueue((prev) => [...prev, ...unlocked]);
+      });
 
       socket.on('connect', () => {
         console.log('Socket reconnected, rejoining room...');
@@ -136,8 +151,9 @@ export default function StudentPollRoom() {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('live-poll-results');  
+      socket.off('badge-earned');
     };
-  }, [roomCode, navigate]);
+  }, [roomCode, navigate, user?.uid]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -196,6 +212,25 @@ export default function StudentPollRoom() {
       console.error("Failed to load room details:", e);
     }
   };
+
+
+  useEffect(() => {
+    if (newBadgePopup || badgePopupQueue.length === 0) return;
+    setNewBadgePopup(badgePopupQueue[0]);
+    setBadgePopupQueue((prev) => prev.slice(1));
+  }, [badgePopupQueue, newBadgePopup]);
+
+  useEffect(() => {
+    if (!newBadgePopup) return;
+    setShowConfetti(true);
+    toast.success(`Badge earned: ${newBadgePopup.badgeId?.name || "Achievement unlocked"}`);
+    const popupTimeout = setTimeout(() => setNewBadgePopup(null), 4000);
+    const confettiTimeout = setTimeout(() => setShowConfetti(false), 2500);
+    return () => {
+      clearTimeout(popupTimeout);
+      clearTimeout(confettiTimeout);
+    };
+  }, [newBadgePopup]);
 
   const submitAnswer = async (pollId: string, answerIndex: number) => {
     setIsAnimating(true);
@@ -289,17 +324,59 @@ export default function StudentPollRoom() {
 
   const activeLivePolls = livePolls.filter(p => answeredPolls[p._id] === undefined);
   const answeredLivePolls = livePolls.filter(p => answeredPolls[p._id] !== undefined);
+  const popupTier = newBadgePopup ? getBadgeTier(newBadgePopup.badgeId?.category, newBadgePopup.badgeId?.name) : null;
 
   if (!roomCode) return <div>Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-violet-900/20 dark:to-purple-900/20">
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-40">
+          <Confetti recycle={false} numberOfPieces={260} />
+        </div>
+      )}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto p-6">
+        {newBadgePopup && (
+          <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right duration-500">
+            <div
+              className={`w-[320px] rounded-2xl border shadow-2xl p-4 bg-gradient-to-br ${popupTier?.bg} ${popupTier?.border}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br ${popupTier?.iconContainer}`}>
+                  {(() => {
+                    const PopupIcon = popupTier?.Icon || Award;
+                    return <PopupIcon className={`w-6 h-6 ${popupTier?.iconColor || "text-white"}`} />;
+                  })()}
+                  <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">
+                    <Sparkles className="w-3 h-3 text-yellow-500" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
+                    Achievement Unlocked
+                  </p>
+                  <p className={`text-base font-extrabold mt-0.5 ${popupTier?.text}`}>
+                    {newBadgePopup.badgeId?.name || "Achievement unlocked"}
+                  </p>
+                  <p className={`text-xs mt-1 ${popupTier?.categoryText}`}>
+                    {newBadgePopup.badgeId?.description || "Keep it up! You earned a new badge."}
+                  </p>
+                  <div className="mt-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-white/60 border border-current/10 ${popupTier?.categoryText}`}>
+                      {newBadgePopup.badgeId?.category || "general"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
@@ -312,7 +389,7 @@ export default function StudentPollRoom() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-200/50 dark:border-purple-700/50">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-linear-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-200/50 dark:border-purple-700/50">
               <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               <span className="text-lg font-semibold text-purple-700 dark:text-purple-300">
                 Live Poll Session
@@ -407,7 +484,6 @@ export default function StudentPollRoom() {
             </div>
           )}
         </div>
-
         <div className="flex gap-8">
           <div className="flex-1 space-y-8">
             {/* Active Live Polls */}

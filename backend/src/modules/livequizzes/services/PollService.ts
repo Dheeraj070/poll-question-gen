@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import { Room } from '../../../shared/database/models/Room.js';
 import { pollSocket } from '../utils/PollSocket.js';
 import { UserModel } from '#root/shared/database/models/User.js';
+import { evaluateBadges } from '../utils/achievementEngine.js';
+import UserAchievement from '#root/shared/database/models/UserAchievement.js';
+import Badge from '#root/shared/database/models/Badge.js';
+import { updateRoomStats } from '../utils/statsService.js';
 
 interface InMemoryPoll {
   pollId: string;
@@ -16,6 +20,7 @@ interface InMemoryPoll {
   startTime?: number;
   timeLeft: number;
   roomCode: string;
+  createdAt?: Date;
 }
 
 @injectable()
@@ -30,14 +35,14 @@ export class PollService {
     timer?: number;
   }) {
     const pollId = crypto.randomUUID();
-
+    const createdAt = new Date();
     const poll = {
       _id: pollId,
       question: data.question,
       options: data.options,
       correctOptionIndex: data.correctOptionIndex,
       timer: data.timer ?? 30,
-      createdAt: new Date(),
+      createdAt,
       answers: []
     };
 
@@ -52,6 +57,7 @@ export class PollService {
       timer: data.timer ?? 0, // 0 means no timer
       timeLeft: data.timer ?? 0,
       roomCode,
+      createdAt,
     };
 
     await Room.updateOne(
@@ -93,10 +99,35 @@ export class PollService {
     // Emit update to all clients
     this.emitPollUpdate(roomCode, pollId);
 
+    const answeredAt = new Date();
     await Room.updateOne(
       { roomCode, "polls._id": pollId },
-      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt: new Date() } } }
+      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt } } }
     );
+
+    // Determine correctness
+    const isCorrect = poll.correctOptionIndex === answerIndex;
+
+    // Calculate response time (seconds)
+    const responseTime = (answeredAt.getTime() - poll.createdAt.getTime()) / 1000;
+
+    // Update room stats
+    const stats = await updateRoomStats({
+      userId,
+      roomCode,
+      isCorrect,
+      responseTime
+    });
+
+    // Evaluate badges and notify room in real time when unlocked
+    const newlyUnlockedBadges = await evaluateBadges(userId, roomCode, stats);
+    if (newlyUnlockedBadges.length > 0) {
+      pollSocket.emitToRoom(roomCode, 'badge-earned', {
+        userId,
+        roomCode,
+        badges: newlyUnlockedBadges,
+      });
+    }
   }
 
   async getPollResults(roomCode: string) {
@@ -176,4 +207,25 @@ export class PollService {
       roomCode: poll.roomCode,
     };
   }
+
+ async getUserAchievements(userId: string) {
+  const [achievedBadgesRaw, allBadges] = await Promise.all([
+    UserAchievement.find({ userId })
+      .populate("badgeId")
+      .lean(),
+    Badge.find().lean()
+  ]);
+
+  const achievedBadges = achievedBadgesRaw.filter((a: any) => a?.badgeId?._id);
+  const achievedBadgeIds = new Set(
+    achievedBadges.map((a: any) => a.badgeId._id.toString())
+  );
+
+  const unachievedBadges = allBadges.filter(
+    badge => !achievedBadgeIds.has(badge._id.toString())
+  );
+
+  return { achievedBadges, unachievedBadges };
+}
+
 }

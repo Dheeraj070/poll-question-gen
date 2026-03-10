@@ -27,6 +27,12 @@ export function StudentTourGuide({ className }: StudentTourGuideProps) {
       placement: 'bottom',
     },
     {
+      target: '[data-tour="badges-nav"]',
+      content: 'Click here to view your badges and track the achievements you have earned.',
+      placement: 'bottom',
+      disableBeacon: true,
+    },
+    {
       target: '[data-tour="theme-toggle"]',
       content: 'Toggle between light and dark themes to customize your experience.',
       placement: 'bottom-end',
