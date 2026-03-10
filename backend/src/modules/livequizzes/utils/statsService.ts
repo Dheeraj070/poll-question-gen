@@ -32,8 +32,10 @@ export async function updateRoomStats({
   stats.accuracy =
     (stats.correctAnswers / stats.totalAnswers) * 100;
 
-  if(stats.fastestResponse === null ||
-     responseTime < stats.fastestResponse){
+  if(
+    isCorrect &&
+    (stats.fastestResponse === null || responseTime < stats.fastestResponse)
+  ){
 
      stats.fastestResponse = responseTime;
   }

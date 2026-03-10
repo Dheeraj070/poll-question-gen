@@ -10,6 +10,8 @@ const MIN_ANSWERS_FOR_ACCURACY = 100;
 export function checkRule(rule: Rule, stats: UserRoomStats): boolean {
 
   switch (rule.type) {
+    case "correct_answers":
+      return stats.correctAnswers >= rule.threshold;
 
     case "correct_streak":
       return stats.maxStreak >= rule.threshold;
@@ -24,7 +26,10 @@ export function checkRule(rule: Rule, stats: UserRoomStats): boolean {
       return stats.totalAnswers >= rule.threshold;
 
     case "fast_response":
-      return stats.fastestResponse <= rule.threshold;
+      return (
+        stats.fastestResponse !== null &&
+        stats.fastestResponse <= rule.threshold
+      );
 
     default:
       return false;

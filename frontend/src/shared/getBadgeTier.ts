@@ -1,24 +1,42 @@
-import { Award, Star, Zap, CheckCircle, ShieldCheck, CakeSlice } from "lucide-react";
+import {
+  Award,
+  CheckCircle,
+  Flame,
+  ShieldCheck,
+  Star,
+  Swords,
+  Zap,
+} from "lucide-react";
 
 export const getBadgeTier = (category = "", name = "") => {
   const cat = category.toLowerCase();
   const title = (name || "").toLowerCase();
 
-  // pick an icon based on keywords in the badge name; fall back to a generic shape
   let Icon = Award;
-  if (title.includes("first")) {
+  if (title === "first attempt") {
     Icon = Star;
+  } else if (title === "first correct answer") {
+    Icon = CheckCircle;
+  } else if (title === "quick thinker") {
+    Icon = Zap;
+  } else if (title === "correct streak") {
+    Icon = Flame;
+  } else if (title === "accuracy champion") {
+    Icon = ShieldCheck;
+  } else if (title === "10 correct answers") {
+    Icon = Swords;
   } else if (title.includes("quick")) {
     Icon = Zap;
-  } else if (title.includes("correct")) {
-    Icon = CheckCircle;
+  } else if (title.includes("streak")) {
+    Icon = Flame;
   } else if (title.includes("accuracy")) {
     Icon = ShieldCheck;
-  } else if (title.includes("question") || title.includes("questions")) {
-    Icon = CakeSlice;
+  } else if (title.includes("correct")) {
+    Icon = CheckCircle;
+  } else if (title.includes("first")) {
+    Icon = Star;
   }
 
-  // each category gets its own distinct colour palette/style
   if (cat === "engagement") {
     const text = "text-amber-800 dark:text-amber-200";
     return {
@@ -46,26 +64,26 @@ export const getBadgeTier = (category = "", name = "") => {
   }
 
   if (cat === "performance") {
-    const text = "text-violet-800 dark:text-violet-200";
+    const text = "text-rose-800 dark:text-rose-200";
     return {
-      bg: "from-violet-50 to-purple-50 dark:from-violet-900/30 dark:to-purple-900/20",
-      border: "border-violet-200/70 dark:border-violet-700/50",
-      iconContainer: "from-violet-400 to-purple-600",
+      bg: "from-rose-50 to-orange-50 dark:from-rose-900/30 dark:to-orange-900/20",
+      border: "border-rose-200/70 dark:border-rose-700/50",
+      iconContainer: "from-rose-400 to-orange-600",
       text,
-      categoryText: "text-violet-600 dark:text-violet-300",
+      categoryText: "text-rose-600 dark:text-rose-300",
       iconColor: text,
       Icon,
     };
   }
 
   if (cat === "milestone") {
-    const text = "text-blue-800 dark:text-blue-200";
+    const text = "text-cyan-800 dark:text-cyan-200";
     return {
-      bg: "from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/20",
-      border: "border-blue-200/70 dark:border-blue-700/50",
-      iconContainer: "from-blue-400 to-indigo-600",
+      bg: "from-cyan-50 to-sky-50 dark:from-cyan-900/30 dark:to-sky-900/20",
+      border: "border-cyan-200/70 dark:border-cyan-700/50",
+      iconContainer: "from-cyan-400 to-sky-600",
       text,
-      categoryText: "text-blue-600 dark:text-blue-300",
+      categoryText: "text-cyan-600 dark:text-cyan-300",
       iconColor: text,
       Icon,
     };
