@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 const AnswerSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   answerIndex: { type: Number, required: true },
-  answeredAt: { type: Date, default: Date.now }
+  answeredAt: { type: Date, default: Date.now },
+  points: { type: Number, default: 0 }
 });
 
 const PollSchema = new mongoose.Schema({
