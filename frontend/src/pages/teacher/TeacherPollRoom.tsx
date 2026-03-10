@@ -3744,10 +3744,6 @@ export default function TeacherPollRoom() {
                             }}
                             className="dark:bg-gray-800/50 text-sm w-36"
                             aria-label="Timer in seconds"
-                            disabled={questionTimers[currentQuestionIndex]?.isActive ||
-                              (launchedQuestions.has(currentQuestionIndex) &&
-                                (questionTimers[currentQuestionIndex]?.timeLeft === 0 ||
-                                  questionTimers[currentQuestionIndex]?.isLaunched))}
                           />
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
