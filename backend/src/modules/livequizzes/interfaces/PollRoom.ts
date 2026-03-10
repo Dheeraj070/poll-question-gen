@@ -13,7 +13,7 @@ export interface Poll {
   options: string[];
   correctOptionIndex: number;
   timer: number;
-  maxPoint?: number;
+  maxPoints?: number;
   createdAt: Date;
   answers: PollAnswer[];
 }
