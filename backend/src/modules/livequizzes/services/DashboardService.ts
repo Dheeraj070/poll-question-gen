@@ -2,15 +2,24 @@ import { injectable } from 'inversify';
 import { Room } from '../../../shared/database/models/Room.js';
 import UserAchievement from '#root/shared/database/models/UserAchievement.js';
 import Badge from '#root/shared/database/models/Badge.js';
+import UserRoomStats from '#root/shared/database/models/UserRoomStats.js';
 
 @injectable()
 export class DashboardService {
     async getStudentDashboardData(studentId: string) {
-        const rooms = await Room.find({ 'polls.answers.userId': studentId }).lean();
+        const [rooms, userRoomStats] = await Promise.all([
+            Room.find({ 'polls.answers.userId': studentId }).lean(),
+            UserRoomStats.find({ userId: studentId }).lean()
+        ]);
 
         let totalPolls = 0;
         let takenPolls = 0;
         let totalScore = 0;
+        let totalMaxPoints = 0;
+         const totalPoints = userRoomStats.reduce(
+            (sum, stats) => sum + (stats.totalPoints || 0),
+            0
+        );
 
         let pollResults: any[] = [];
         let pollDetails: any[] = [];
@@ -21,6 +30,7 @@ export class DashboardService {
 
         for (const room of rooms) {
             let roomScore = 0;
+            let roomMaxPoints = 0;
             let attendedPolls = 0;
 
             for (const poll of room.polls ?? []) {
@@ -31,21 +41,27 @@ export class DashboardService {
                     takenPolls++;
                     attendedPolls++;
 
-                    const score = answer.answerIndex === poll.correctOptionIndex ? 20 : 0;
+                    const score = answer.points ?? 0;
+                    const maxPoints = poll.maxPoints ?? 20;
                     roomScore += score;
+                    roomMaxPoints += maxPoints;
                     totalScore += score;
+                    totalMaxPoints += maxPoints;
 
                     // Add to pollResults
                     pollResults.push({
                         name: poll.question || 'Untitled Poll',
                         score,
+                        maxPoints: maxPoints,
+                        points: answer.points ?? 0,
                         date: poll.createdAt || new Date()
                     });
 
                     // For score progression chart
                     scoreProgression.push({
                         poll: poll.question || 'Poll',
-                        score
+                        score: answer.points ?? 0,
+                        maxPoints: poll.maxPoints ?? 20
                     });
                 }
 
@@ -69,7 +85,7 @@ export class DashboardService {
 
             // Add room-wise score if student attended at least one poll
             if (attendedPolls > 0) {
-                const avgScore = roomScore / attendedPolls;
+                const avgScore = roomMaxPoints > 0 ? Math.round((roomScore / roomMaxPoints) * 100) : 0;
                 roomWiseScores.push({
                     roomName: room.name,
                     roomCode: room.roomCode,
@@ -77,15 +93,16 @@ export class DashboardService {
                     attendedPolls,
                     taken: attendedPolls,
                     score: roomScore,
+                    maxPossiblePoints: roomMaxPoints,
                     avgScore,
-                    averageScore: avgScore.toFixed(1),
+                    averageScore: `${avgScore}%`,
                     status: room.status,
                     createdAt: room.createdAt
                 });
             }
         }
 
-        const avgScore = takenPolls > 0 ? (totalScore / takenPolls).toFixed(1) : '0';
+        const avgScore = totalMaxPoints > 0 ? Math.round((totalScore / totalMaxPoints) * 100) : 0;
         const participationRate = totalPolls > 0 ? `${Math.round((takenPolls / totalPolls) * 100)}%` : '0%';
 
         return {
@@ -100,7 +117,7 @@ export class DashboardService {
             upcomingPolls,
             scoreProgression,
             performanceSummary: {
-                avgScore,
+                avgScore: `${avgScore}%`,
                 participationRate,
                 bestSubject: 'N/A'
             },

@@ -18,6 +18,8 @@ export interface StudentData {
     subject: string;
     score: number;
     date: string;
+    maxPoints: number;
+    points: number;
   }[];
   pollDetails: {
     title: string;
@@ -35,6 +37,7 @@ export interface StudentData {
   scoreProgression: {
     poll: string;
     score: number;
+    maxPoints: number;
   }[];
   performanceSummary: {
     avgScore: string;
@@ -48,6 +51,7 @@ export interface StudentData {
     attendedPolls: number;
     taken: number;
     score: number;
+    maxPossiblePoints: number;
     avgScore: number;
     averageScore: string;
     status: string;
@@ -321,12 +325,17 @@ export default function StudentDashboard() {
                         Date: {new Date(poll.date).toLocaleDateString()}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-blue-700 dark:text-blue-400 font-bold">{poll.score}</div>
-                      <div className="text-gray-500 dark:text-gray-400 text-xs">
-                        Timer: {pollDetails[idx]?.timer || 'N/A'}{"s"}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center px-3 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-semibold text-sm sm:text-base">
+                          <span className="text-base sm:text-lg">{poll.points}</span>
+                          <span className="mx-1 text-blue-400 dark:text-blue-500">/</span>
+                          <span className="text-xs sm:text-sm opacity-80">{poll.maxPoints}</span>
+                        </div>
+
+                        <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
+                          ⏱ {pollDetails[idx]?.timer || "N/A"}s
+                        </div>
                       </div>
-                    </div>
                   </div>
                 ))
               ) : (
@@ -459,6 +468,10 @@ export default function StudentDashboard() {
                         borderRadius: '8px',
                         color: isDark ? '#f3f4f6' : '#1f2937'
                       }}
+                      formatter={(value: any, name: any, props: any) => [
+                        `${value} / ${props.payload?.maxPoints || 20}`,
+                        'Score'
+                      ]}
                     />
                     <Bar
                       dataKey="score"
@@ -491,7 +504,7 @@ export default function StudentDashboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
                       <h3 className="font-semibold text-blue-800 dark:text-blue-300 text-sm sm:text-base truncate">{room.roomName}</h3>
                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                        {room.averageScore || room.avgScore || '0'}
+                        {room.score}/{room.maxPossiblePoints} <span className="text-sm text-gray-500 dark:text-gray-400">({room.averageScore})</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-sm">
@@ -547,11 +560,15 @@ export default function StudentDashboard() {
               <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="text-sm font-semibold text-green-800 dark:text-green-300">Average Score</div>
                 <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                  {performanceSummary?.avgScore || '0'}
+                  {performanceSummary?.avgScore || '0%'}
                 </div>
                 <div className="text-xs text-green-600 dark:text-green-400">
-                  {parseFloat(performanceSummary?.avgScore || '0') > 14 ? '+' : ''}
-                  {(parseFloat(performanceSummary?.avgScore || '0') - 12).toFixed(1)} from baseline
+                  {(() => {
+                    const score = parseInt(performanceSummary?.avgScore || '0');
+                    if (score >= 80) return 'Excellent performance';
+                    if (score >= 60) return 'Good performance';
+                    return 'Keep improving';
+                  })()}
                 </div>
               </div>
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
