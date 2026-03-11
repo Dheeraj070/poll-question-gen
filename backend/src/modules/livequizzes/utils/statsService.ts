@@ -5,7 +5,8 @@ export async function updateRoomStats({
   userId,
   roomCode,
   isCorrect,
-  responseTime
+  responseTime,
+  points,
 }){
 
   let stats = await UserRoomStats.findOne({ userId, roomCode });
@@ -15,6 +16,7 @@ export async function updateRoomStats({
   }
 
   stats.totalAnswers++;
+  stats.totalPoints += points;
 
   if(isCorrect){
 
