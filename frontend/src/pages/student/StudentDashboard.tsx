@@ -12,6 +12,7 @@ export interface StudentData {
     total: number;
     taken: number;
     absent: number;
+    earnedPoints: number;
   };
   pollResults: {
     name: string;
@@ -292,6 +293,13 @@ export default function StudentDashboard() {
                   <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Polls Absent</span>
                 </div>
                 <span className="text-blue-600 font-bold text-lg">{pollStats?.absent || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Earned Points</span>
+                </div>
+                <span className="text-blue-600 font-bold text-lg">{pollStats?.earnedPoints || 0}</span>
               </div>
             </CardContent>
           </Card>

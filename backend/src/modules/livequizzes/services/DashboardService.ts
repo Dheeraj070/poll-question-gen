@@ -7,19 +7,13 @@ import UserRoomStats from '#root/shared/database/models/UserRoomStats.js';
 @injectable()
 export class DashboardService {
     async getStudentDashboardData(studentId: string) {
-        const [rooms, userRoomStats] = await Promise.all([
-            Room.find({ 'polls.answers.userId': studentId }).lean(),
-            UserRoomStats.find({ userId: studentId }).lean()
-        ]);
+        const rooms = await Room.find({ 'polls.answers.userId': studentId }).lean();
 
         let totalPolls = 0;
         let takenPolls = 0;
         let totalScore = 0;
         let totalMaxPoints = 0;
-         const totalPoints = userRoomStats.reduce(
-            (sum, stats) => sum + (stats.totalPoints || 0),
-            0
-        );
+
 
         let pollResults: any[] = [];
         let pollDetails: any[] = [];
@@ -109,7 +103,8 @@ export class DashboardService {
             pollStats: {
                 total: totalPolls,
                 taken: takenPolls,
-                absent: totalPolls - takenPolls
+                absent: totalPolls - takenPolls,
+                earnedPoints: totalScore
             },
             pollResults,
             pollDetails,
