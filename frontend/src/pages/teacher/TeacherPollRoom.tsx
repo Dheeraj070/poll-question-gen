@@ -771,15 +771,24 @@ export default function TeacherPollRoom() {
     queuedGeneratedQuestionsRef.current = queuedGeneratedQuestions;
   }, [queuedGeneratedQuestions]);
 
-  // Reset queue buffers when starting/stopping recording
   useEffect(() => {
     if (isRecording || isLiveRecordingActive) {
       processedWordsRef.current = 0;
       pendingTextChunksRef.current = [];
       queuedGeneratedQuestionsRef.current = [];
       setQueuedGeneratedQuestions([]);
+      // Reset timer to current time when recording starts
+      lastGenerationTimeRef.current = Date.now();
     }
   }, [isRecording, isLiveRecordingActive]);
+
+  // Keep bufferTextRef in sync with the latest transcript
+  useEffect(() => {
+    const textBuffer = (useWhisper || useWhisperGGML)
+      ? (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim()
+      : displayTranscript.trim();
+    bufferTextRef.current = textBuffer;
+  }, [displayTranscript, transcriber.accumulatedChunks, useWhisper, useWhisperGGML]);
 
   /* // Commented out old word-checkpoint logic
   useEffect(() => {
@@ -1003,6 +1012,7 @@ export default function TeacherPollRoom() {
   // NEW: Time-based automatic question generation trigger
   useEffect(() => {
     if (!isRecording && !isLiveRecordingActive) {
+      // Keep it updated so that when recording starts, it's fresh
       lastGenerationTimeRef.current = Date.now();
       return;
     }
@@ -1013,9 +1023,8 @@ export default function TeacherPollRoom() {
 
       if (elapsedSeconds >= autoGenInterval) {
         // Build the current transcript buffer based on active mode
-        const textBuffer = (useWhisper || useWhisperGGML)
-          ? (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim()
-          : displayTranscript.trim();
+        // Use the Ref-synced text to avoid state-closure issues and keep effect stable
+        const textBuffer = bufferTextRef.current;
 
         // Check if there are internal words to process
         const words = textBuffer ? textBuffer.split(/\s+/).filter(Boolean) : [];
@@ -1034,7 +1043,7 @@ export default function TeacherPollRoom() {
     }, 1000); // Check every second
 
     return () => clearInterval(intervalId);
-  }, [isRecording, isLiveRecordingActive, autoGenInterval, useWhisper, useWhisperGGML, displayTranscript, transcriber.accumulatedChunks, enqueueTextChunk]);
+  }, [isRecording, isLiveRecordingActive, autoGenInterval, enqueueTextChunk]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
