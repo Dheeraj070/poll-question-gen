@@ -3729,7 +3729,7 @@ export default function TeacherPollRoom() {
                           <Input
                             type="number"
                             placeholder="e.g. 30"
-                            value={questionTimers[currentQuestionIndex]?.initialTime ?? 30}
+                            value={questionTimers[currentQuestionIndex]?.initialTime ? questionTimers[currentQuestionIndex]?.initialTime : 30}
                             min={5}
                             onChange={(e) => {
                               const newTime = Number(e.target.value);
