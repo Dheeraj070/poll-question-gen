@@ -176,10 +176,10 @@ export default function TeacherPollRoom() {
       try {
         if (!roomCode) return;
         const res = await api.get(`/livequizzes/rooms/${roomCode}`);
-        
+
         if (res.data.success && res.data.room?.controls) {
           const { micBlocked, pollRestricted } = res.data.room.controls;
-          
+
           if (micBlocked) {
             setRoomControlMode('mic-disabled');
             // Agar mic blocked hai toh state disable kar do
@@ -242,8 +242,8 @@ export default function TeacherPollRoom() {
     }
   };
 
-  const LeaveCohost = async (roomCode:string,cohostId:string) =>{
-    socket.emit('cohost-leave',roomCode,cohostId)
+  const LeaveCohost = async (roomCode: string, cohostId: string) => {
+    socket.emit('cohost-leave', roomCode, cohostId)
     toast.info("Left the room.");
     navigate({ to: `/teacher/cohosted-rooms` });
   }
@@ -275,7 +275,7 @@ export default function TeacherPollRoom() {
       console.error("Error toggling cohost mic:", error);
       setCohosts(prev =>
         prev.map(c =>
-          c.userId === cohostId ? { ...c, isMicMuted:!isMicMuted } : c
+          c.userId === cohostId ? { ...c, isMicMuted: !isMicMuted } : c
         )
       );
       toast.error("Failed to update co-host microphone");
@@ -384,6 +384,11 @@ export default function TeacherPollRoom() {
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [language, setLanguage] = useState<SupportedLanguage>("en-IN");
+  const [autoGenInterval, setAutoGenInterval] = useState<number>(30); // Default 30s
+  const [isCustomInterval, setIsCustomInterval] = useState(false);
+  const [isIntervalLocked, setIsIntervalLocked] = useState(false);
+  const [customIntervalInput, setCustomIntervalInput] = useState<string>("30");
+  const lastGenerationTimeRef = useRef<number>(Date.now());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -768,17 +773,26 @@ export default function TeacherPollRoom() {
     queuedGeneratedQuestionsRef.current = queuedGeneratedQuestions;
   }, [queuedGeneratedQuestions]);
 
-  // Reset queue buffers when starting/stopping recording
   useEffect(() => {
     if (isRecording || isLiveRecordingActive) {
       processedWordsRef.current = 0;
       pendingTextChunksRef.current = [];
       queuedGeneratedQuestionsRef.current = [];
       setQueuedGeneratedQuestions([]);
+      // Reset timer to current time when recording starts
+      lastGenerationTimeRef.current = Date.now();
     }
   }, [isRecording, isLiveRecordingActive]);
 
-  // Watch Whisper live chunks and enqueue 100-word checkpoints
+  // Keep bufferTextRef in sync with the latest transcript
+  useEffect(() => {
+    const textBuffer = (useWhisper || useWhisperGGML)
+      ? (transcriber.accumulatedChunks ?? []).map((c) => c.text).join(" ").trim()
+      : displayTranscript.trim();
+    bufferTextRef.current = textBuffer;
+  }, [displayTranscript, transcriber.accumulatedChunks, useWhisper, useWhisperGGML]);
+
+  /* // Commented out old word-checkpoint logic
   useEffect(() => {
     if (!useWhisper && !useWhisperGGML) return;
     // Build buffer text from accumulated chunks
@@ -804,6 +818,7 @@ export default function TeacherPollRoom() {
       enqueueTextChunk(chunkWords);
     }
   }, [displayTranscript, useWhisper, useWhisperGGML, enqueueTextChunk]);
+  */
 
   const updateAudioLevel = useCallback(() => {
     if (analyserRef.current) {
@@ -996,6 +1011,41 @@ export default function TeacherPollRoom() {
     recordingLockStatus,
   ]);
 
+  // NEW: Time-based automatic question generation trigger
+  useEffect(() => {
+    if (!isRecording && !isLiveRecordingActive) {
+      // Keep it updated so that when recording starts, it's fresh
+      lastGenerationTimeRef.current = Date.now();
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      const elapsedSeconds = (now - lastGenerationTimeRef.current) / 1000;
+
+      if (elapsedSeconds >= autoGenInterval) {
+        // Build the current transcript buffer based on active mode
+        // Use the Ref-synced text to avoid state-closure issues and keep effect stable
+        const textBuffer = bufferTextRef.current;
+
+        // Check if there are internal words to process
+        const words = textBuffer ? textBuffer.split(/\s+/).filter(Boolean) : [];
+        const remainingCount = words.length - processedWordsRef.current;
+
+        if (remainingCount > 0) {
+          const chunkWords = words.slice(processedWordsRef.current, processedWordsRef.current + remainingCount).join(" ");
+          processedWordsRef.current += remainingCount;
+          enqueueTextChunk(chunkWords);
+        }
+
+        // Always reset time to the current "tick" regardless of word availability
+        // to ensure we keep trying if the user starts talking again.
+        lastGenerationTimeRef.current = now;
+      }
+    }, 1000); // Check every second
+
+    return () => clearInterval(intervalId);
+  }, [isRecording, isLiveRecordingActive, autoGenInterval, enqueueTextChunk]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
@@ -1790,7 +1840,7 @@ export default function TeacherPollRoom() {
     }
   }, [isRecording, isLiveRecordingActive]);
 
-  // Watch Whisper live chunks and enqueue 100-word checkpoints
+  /* // Commented out old word-checkpoint logic
   useEffect(() => {
     if (!useWhisper && !useWhisperGGML) return;
     // Build buffer text from accumulated chunks
@@ -1816,6 +1866,7 @@ export default function TeacherPollRoom() {
       enqueueTextChunk(chunkWords);
     }
   }, [displayTranscript, useWhisper, useWhisperGGML, enqueueTextChunk]);
+  */
 
   const handleGeneratedQuestionClick = () => {
     setShowPreview(true);
@@ -2330,14 +2381,14 @@ export default function TeacherPollRoom() {
                 )}
                 {!isHost && currentUser && (
                   <Button
-                      onClick={() => LeaveCohost(roomCode,currentUser?.uid)}
-                      variant="destructive"
-                      className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                      // disabled={isEndingRoom}
-                    >
-                      <LogOut size={16} />
-                      <span className="xs:inline">Leave Room</span>
-                    </Button>
+                    onClick={() => LeaveCohost(roomCode, currentUser?.uid)}
+                    variant="destructive"
+                    className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                  // disabled={isEndingRoom}
+                  >
+                    <LogOut size={16} />
+                    <span className="xs:inline">Leave Room</span>
+                  </Button>
                 )}
               </div>
             </div>
@@ -2634,6 +2685,102 @@ export default function TeacherPollRoom() {
                                       ))}
                                     </SelectContent>
                                   </Select>
+
+                                  <Select
+                                    value={isCustomInterval ? "custom" : autoGenInterval.toString()}
+                                    onValueChange={(value) => {
+                                      if (value === "custom") {
+                                        setIsCustomInterval(true);
+                                        setIsIntervalLocked(false);
+                                      } else {
+                                        setIsCustomInterval(false);
+                                        const val = parseInt(value, 10);
+                                        setAutoGenInterval(val);
+                                        setCustomIntervalInput(value);
+                                        setIsIntervalLocked(true);
+                                      }
+                                    }}
+                                    disabled={isRecording || isLiveRecordingActive}
+                                  >
+                                    <SelectTrigger className="w-[100px] sm:w-[140px] md:w-[170px] h-9 border border-gray-300 dark:border-gray-700 rounded-md hover:border-purple-500 focus:border-purple-500 transition-colors flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                      <span className="hidden md:block text-sm text-gray-700 dark:text-gray-200 overflow-hidden">
+                                        <SelectValue placeholder="Interval" />
+                                      </span>
+                                    </SelectTrigger>
+                                    <SelectContent className="border border-gray-200 dark:border-gray-700 rounded-md shadow-md bg-white/90 dark:bg-gray-900/90">
+                                      <SelectItem value="30">30 Seconds</SelectItem>
+                                      <SelectItem value="60">1 Minute</SelectItem>
+                                      <SelectItem value="180">3 Minutes</SelectItem>
+                                      <SelectItem value="300">5 Minutes</SelectItem>
+                                      <SelectItem value="600">10 Minutes</SelectItem>
+                                      <SelectItem value="custom">Custom</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+
+                                  {isCustomInterval && (
+                                    <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                      {!isIntervalLocked ? (
+                                        <div className="relative flex items-center group">
+                                          <Input
+                                            type="number"
+                                            className="w-[85px] h-9 pr-8 border-purple-200 focus:border-purple-500 dark:border-purple-900 transition-all font-medium"
+                                            placeholder="Sec"
+                                            value={customIntervalInput}
+                                            onChange={(e) => setCustomIntervalInput(e.target.value)}
+                                            onBlur={(e) => {
+                                              // small delay to allow button click to be processed if focus moved there
+                                              // or check relatedTarget
+                                              if (!e.relatedTarget || !e.relatedTarget.closest('.save-interval-btn')) {
+                                                setCustomIntervalInput(autoGenInterval.toString());
+                                              }
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const val = parseInt(customIntervalInput, 10);
+                                                if (!isNaN(val) && val > 0) {
+                                                  setAutoGenInterval(val);
+                                                  setIsIntervalLocked(true);
+                                                  toast.success(`Interval set to ${val}s`);
+                                                }
+                                              }
+                                            }}
+                                            disabled={isRecording || isLiveRecordingActive}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 absolute right-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/40 rounded-sm save-interval-btn"
+                                            onClick={() => {
+                                              const val = parseInt(customIntervalInput, 10);
+                                              if (!isNaN(val) && val > 0) {
+                                                setAutoGenInterval(val);
+                                                setIsIntervalLocked(true);
+                                                toast.success(`Interval set to ${val}s`);
+                                              } else {
+                                                toast.error("Please enter a valid duration");
+                                              }
+                                            }}
+                                            disabled={isRecording || isLiveRecordingActive}
+                                          >
+                                            <Check className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <div
+                                          className={`flex items-center gap-2 px-3 py-1 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-full cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors ${(isRecording || isLiveRecordingActive) ? 'opacity-80 pointer-events-none' : ''}`}
+                                          onClick={() => !(isRecording || isLiveRecordingActive) && setIsIntervalLocked(false)}
+                                        >
+                                          <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                                            {autoGenInterval}s
+                                          </span>
+                                          {!(isRecording || isLiveRecordingActive) && (
+                                            <Edit3 className="h-3 w-3 text-purple-400" />
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                   <Select onValueChange={(value) => {
                                     // Toggle the selected panel if it's already open
                                     if ((value === 'uploadAudio' && showAudioOptions) ||
