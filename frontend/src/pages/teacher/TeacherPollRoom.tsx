@@ -176,10 +176,10 @@ export default function TeacherPollRoom() {
       try {
         if (!roomCode) return;
         const res = await api.get(`/livequizzes/rooms/${roomCode}`);
-        
+
         if (res.data.success && res.data.room?.controls) {
           const { micBlocked, pollRestricted } = res.data.room.controls;
-          
+
           if (micBlocked) {
             setRoomControlMode('mic-disabled');
             // Agar mic blocked hai toh state disable kar do
@@ -242,8 +242,8 @@ export default function TeacherPollRoom() {
     }
   };
 
-  const LeaveCohost = async (roomCode:string,cohostId:string) =>{
-    socket.emit('cohost-leave',roomCode,cohostId)
+  const LeaveCohost = async (roomCode: string, cohostId: string) => {
+    socket.emit('cohost-leave', roomCode, cohostId)
     toast.info("Left the room.");
     navigate({ to: `/teacher/cohosted-rooms` });
   }
@@ -275,7 +275,7 @@ export default function TeacherPollRoom() {
       console.error("Error toggling cohost mic:", error);
       setCohosts(prev =>
         prev.map(c =>
-          c.userId === cohostId ? { ...c, isMicMuted:!isMicMuted } : c
+          c.userId === cohostId ? { ...c, isMicMuted: !isMicMuted } : c
         )
       );
       toast.error("Failed to update co-host microphone");
@@ -1240,7 +1240,7 @@ export default function TeacherPollRoom() {
     setIsEndingRoom(true);
     try {
       await api.post(`/livequizzes/rooms/${roomCode}/end`, {
-        teacherId: currentUser?.userId,
+        teacherId: currentUser?.uid,
       });
 
       toast.success("Room ended successfully");
@@ -1264,7 +1264,7 @@ export default function TeacherPollRoom() {
       const response = await api.post(`/livequizzes/rooms/${roomCode}/polls`, {
         question,
         options: options.filter(opt => opt.trim()),
-        creatorId: currentUser?.userId,
+        creatorId: currentUser?.uid,
         timer: Number(timer),
         correctOptionIndex
       });
@@ -2330,14 +2330,14 @@ export default function TeacherPollRoom() {
                 )}
                 {!isHost && currentUser && (
                   <Button
-                      onClick={() => LeaveCohost(roomCode,currentUser?.uid)}
-                      variant="destructive"
-                      className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                      // disabled={isEndingRoom}
-                    >
-                      <LogOut size={16} />
-                      <span className="xs:inline">Leave Room</span>
-                    </Button>
+                    onClick={() => LeaveCohost(roomCode, currentUser?.uid)}
+                    variant="destructive"
+                    className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                  // disabled={isEndingRoom}
+                  >
+                    <LogOut size={16} />
+                    <span className="xs:inline">Leave Room</span>
+                  </Button>
                 )}
               </div>
             </div>

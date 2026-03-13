@@ -148,9 +148,9 @@ export class PollRoomController {
 
   //@Authorized(['teacher'])
   @Post('/:code/end')
-  async endRoom(@Param('code') code: string) {
-    const success = await this.roomService.endRoom(code);
-    if (!success) throw new Error('Room not found');
+  async endRoom(@Param('code') code: string, @Body() body: { teacherId: string }) {
+    const success = await this.roomService.endRoom(code, body.teacherId);
+    if (!success) throw new Error('Room not found or unauthorized');
     // Emit to all clients in the room
     pollSocket.emitToRoom(code, 'room-ended', {});
     return { success: true, message: 'Room ended successfully' };
@@ -356,5 +356,5 @@ export class PollRoomController {
   async getUserAchievements(@Param('userId') userId: string) {
     return await this.pollService.getUserAchievements(userId);
   }
-  
+
 }
