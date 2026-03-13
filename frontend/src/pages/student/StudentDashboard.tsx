@@ -12,6 +12,7 @@ export interface StudentData {
     total: number;
     taken: number;
     absent: number;
+    unattempted: number;
     earnedPoints: number;
   };
   pollResults: {
@@ -293,6 +294,13 @@ export default function StudentDashboard() {
                   <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Polls Absent</span>
                 </div>
                 <span className="text-blue-600 font-bold text-lg">{pollStats?.absent || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm sm:text-base">Polls Unattempted</span>
+                </div>
+                <span className="text-blue-600 font-bold text-lg">{pollStats?.unattempted || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

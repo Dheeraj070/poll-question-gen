@@ -7,10 +7,12 @@ import UserRoomStats from '#root/shared/database/models/UserRoomStats.js';
 @injectable()
 export class DashboardService {
     async getStudentDashboardData(studentId: string) {
-        const rooms = await Room.find({ 'polls.answers.userId': studentId }).lean();
+        const joinedRooms = await Room.find({ 'polls.answers.userId': studentId }).lean();
 
         let totalPolls = 0;
         let takenPolls = 0;
+        let absentPolls = 0;
+        let unattemptedPolls = 0;
         let totalScore = 0;
         let totalMaxPoints = 0;
 
@@ -22,10 +24,22 @@ export class DashboardService {
         let scoreProgression: any[] = [];
         let roomWiseScores: any[] = [];
 
-        for (const room of rooms) {
+        for (const room of joinedRooms) {
+            // Find the earliest answer time for this user in this room (join time proxy)
+            let joinTime: Date | null = null;
+            for (const poll of room.polls ?? []) {
+                const userAnswer = poll.answers?.find((a: any) => a.userId === studentId);
+                if (userAnswer && userAnswer.answeredAt) {
+                    if (!joinTime || userAnswer.answeredAt < joinTime) {
+                        joinTime = userAnswer.answeredAt;
+                    }
+                }
+            }
+
             let roomScore = 0;
             let roomMaxPoints = 0;
             let attendedPolls = 0;
+            let roomUnattemptedPolls = 0;
 
             for (const poll of room.polls ?? []) {
                 totalPolls++;
@@ -57,6 +71,19 @@ export class DashboardService {
                         score: answer.points ?? 0,
                         maxPoints: poll.maxPoints ?? 20
                     });
+                } else {
+                    // No answer - check if poll was before or after join
+                    if (joinTime && poll.createdAt < joinTime) {
+                        absentPolls++;
+                    } else {
+                        unattemptedPolls++;
+                        roomUnattemptedPolls++;
+                        // For unattempted polls, consider points as 0
+                        const maxPoints = poll.maxPoints ?? 20;
+                        roomMaxPoints += maxPoints;
+                        totalMaxPoints += maxPoints;
+                        // totalScore += 0 (already 0)
+                    }
                 }
 
                 // Always add poll details
@@ -77,8 +104,8 @@ export class DashboardService {
                 // (optional) upcoming polls: you could add logic if you store startTime
             }
 
-            // Add room-wise score if student attended at least one poll
-            if (attendedPolls > 0) {
+            // Add room-wise score if student has any activity in the room (taken or unattempted polls)
+            if (attendedPolls > 0 || roomUnattemptedPolls > 0) {
                 const avgScore = roomMaxPoints > 0 ? Math.round((roomScore / roomMaxPoints) * 100) : 0;
                 roomWiseScores.push({
                     roomName: room.name,
@@ -103,7 +130,8 @@ export class DashboardService {
             pollStats: {
                 total: totalPolls,
                 taken: takenPolls,
-                absent: totalPolls - takenPolls,
+                absent: absentPolls,
+                unattempted: unattemptedPolls,
                 earnedPoints: totalScore
             },
             pollResults,
