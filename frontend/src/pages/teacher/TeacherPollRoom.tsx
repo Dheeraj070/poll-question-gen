@@ -386,6 +386,8 @@ export default function TeacherPollRoom() {
   const [language, setLanguage] = useState<SupportedLanguage>("en-IN");
   const [autoGenInterval, setAutoGenInterval] = useState<number>(30); // Default 30s
   const [isCustomInterval, setIsCustomInterval] = useState(false);
+  const [isIntervalLocked, setIsIntervalLocked] = useState(false);
+  const [customIntervalInput, setCustomIntervalInput] = useState<string>("30");
   const lastGenerationTimeRef = useRef<number>(Date.now());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -2689,11 +2691,16 @@ export default function TeacherPollRoom() {
                                     onValueChange={(value) => {
                                       if (value === "custom") {
                                         setIsCustomInterval(true);
+                                        setIsIntervalLocked(false);
                                       } else {
                                         setIsCustomInterval(false);
-                                        setAutoGenInterval(parseInt(value, 10));
+                                        const val = parseInt(value, 10);
+                                        setAutoGenInterval(val);
+                                        setCustomIntervalInput(value);
+                                        setIsIntervalLocked(true);
                                       }
                                     }}
+                                    disabled={isRecording || isLiveRecordingActive}
                                   >
                                     <SelectTrigger className="w-[100px] sm:w-[140px] md:w-[170px] h-9 border border-gray-300 dark:border-gray-700 rounded-md hover:border-purple-500 focus:border-purple-500 transition-colors flex items-center gap-2">
                                       <Clock className="w-4 h-4 text-purple-500 flex-shrink-0" />
@@ -2712,15 +2719,66 @@ export default function TeacherPollRoom() {
                                   </Select>
 
                                   {isCustomInterval && (
-                                    <div className="flex items-center gap-2 ml-2">
-                                      <Input
-                                        type="number"
-                                        className="w-[80px] h-9"
-                                        placeholder="Sec"
-                                        value={autoGenInterval}
-                                        onChange={(e) => setAutoGenInterval(parseInt(e.target.value, 10) || 0)}
-                                      />
-                                      <span className="text-xs text-gray-500 dark:text-gray-400">sec</span>
+                                    <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                      {!isIntervalLocked ? (
+                                        <div className="relative flex items-center group">
+                                          <Input
+                                            type="number"
+                                            className="w-[85px] h-9 pr-8 border-purple-200 focus:border-purple-500 dark:border-purple-900 transition-all font-medium"
+                                            placeholder="Sec"
+                                            value={customIntervalInput}
+                                            onChange={(e) => setCustomIntervalInput(e.target.value)}
+                                            onBlur={(e) => {
+                                              // small delay to allow button click to be processed if focus moved there
+                                              // or check relatedTarget
+                                              if (!e.relatedTarget || !e.relatedTarget.closest('.save-interval-btn')) {
+                                                setCustomIntervalInput(autoGenInterval.toString());
+                                              }
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const val = parseInt(customIntervalInput, 10);
+                                                if (!isNaN(val) && val > 0) {
+                                                  setAutoGenInterval(val);
+                                                  setIsIntervalLocked(true);
+                                                  toast.success(`Interval set to ${val}s`);
+                                                }
+                                              }
+                                            }}
+                                            disabled={isRecording || isLiveRecordingActive}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 absolute right-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/40 rounded-sm save-interval-btn"
+                                            onClick={() => {
+                                              const val = parseInt(customIntervalInput, 10);
+                                              if (!isNaN(val) && val > 0) {
+                                                setAutoGenInterval(val);
+                                                setIsIntervalLocked(true);
+                                                toast.success(`Interval set to ${val}s`);
+                                              } else {
+                                                toast.error("Please enter a valid duration");
+                                              }
+                                            }}
+                                            disabled={isRecording || isLiveRecordingActive}
+                                          >
+                                            <Check className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      ) : (
+                                        <div
+                                          className={`flex items-center gap-2 px-3 py-1 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-full cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors ${(isRecording || isLiveRecordingActive) ? 'opacity-80 pointer-events-none' : ''}`}
+                                          onClick={() => !(isRecording || isLiveRecordingActive) && setIsIntervalLocked(false)}
+                                        >
+                                          <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                                            {autoGenInterval}s
+                                          </span>
+                                          {!(isRecording || isLiveRecordingActive) && (
+                                            <Edit3 className="h-3 w-3 text-purple-400" />
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   <Select onValueChange={(value) => {
