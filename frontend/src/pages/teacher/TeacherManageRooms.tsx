@@ -26,6 +26,7 @@ interface Room {
     status: 'active' | 'ended';
     teacherId: string;
     coHosts?: Cohost[];
+    totalStudents?: number;
     polls: {
         _id: string;
         question: string;
@@ -88,13 +89,7 @@ export default function ManageRoom() {
     };
 
     const calculateParticipants = (room: Room) => {
-        const uniqueParticipants = new Set();
-        room.polls.forEach(poll => {
-            poll.answers.forEach(answer => {
-                uniqueParticipants.add(answer.userId);
-            });
-        });
-        return uniqueParticipants.size;
+        return room.totalStudents || 0;
     };
 
     const calculateDuration = (room: Room) => {

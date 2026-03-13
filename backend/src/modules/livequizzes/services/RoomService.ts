@@ -38,7 +38,8 @@ export class RoomService {
     if (status) {
       query.status = status;
     }
-    return await Room.find(query).sort({ createdAt: -1 }).lean();
+    const rooms = await Room.find(query).sort({ createdAt: -1 }).lean();
+    return rooms.map(room => this.mapRoom(room));
   }
 
   async getUsersByIds(userIds: string[]) {
@@ -61,10 +62,27 @@ export class RoomService {
       timeTaken: number;
     }>();
 
+    // 1.1️⃣ Initialize map with all enrolled students (fetching their Firebase UIDs)
+    if (room.students && room.students.length > 0) {
+      const enrolledUsers = await this.userModel.find({ _id: { $in: room.students } }, 'firebaseUID').lean();
+      for (const user of enrolledUsers) {
+        if (user.firebaseUID) {
+          participantsMap.set(user.firebaseUID, {
+            userId: user.firebaseUID,
+            correct: 0,
+            wrong: 0,
+            score: 0,
+            timeTaken: 0,
+          });
+        }
+      }
+    }
+
     // 2️⃣ Process each poll and answers
     for (const poll of room.polls) {
       for (const answer of poll.answers) {
         if (!participantsMap.has(answer.userId)) {
+          // This case might still happen if a student answered but isn't in 'students' (unlikely but safe)
           participantsMap.set(answer.userId, {
             userId: answer.userId,
             correct: 0,
@@ -191,6 +209,7 @@ export class RoomService {
       teacherId: roomDoc.teacherId,
       createdAt: roomDoc.createdAt,
       status: roomDoc.status,
+      totalStudents: new Set(roomDoc.students?.map((s: any) => s.toString()) || []).size,
       controls: roomDoc.controls || { micBlocked: false, pollRestricted: false },
       polls: (roomDoc.polls || []).map((p: any): Poll => ({
         _id: p._id.toString(),  // convert ObjectId to string if needed
@@ -210,6 +229,7 @@ export class RoomService {
 
 
   async enrollStudent(userId: string, roomCode: string) {
+    if (!userId) return;
     const room = await Room.findOne({ roomCode })
     if (!room) {
       throw new NotFoundError("Room is not found")
@@ -226,6 +246,7 @@ export class RoomService {
   }
 
   async unEnrollStudent(userId: string, roomCode: string) {
+    if (!userId) return;
     const room = await Room.findOne({ roomCode })
     if (!room) {
       throw new NotFoundError("Room is not found")
@@ -605,7 +626,7 @@ export class RoomService {
     if (isMicMuted && room.recordingLock?.userId === userId) {
       room.recordingLock = null;
       lockReleased = true;
-      }
+    }
 
     await room.save();
     if (lockReleased) {
@@ -626,11 +647,11 @@ export class RoomService {
   }
   // Update room controls (Mic, Poll restrictions) and emit to clients
   async updateRoomControls(
-    roomCode: string, 
-    userId: string, 
+    roomCode: string,
+    userId: string,
     controlsUpdate: { micBlocked?: boolean; pollRestricted?: boolean }
   ): Promise<{ message: string; controls: any }> {
-    
+
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -650,9 +671,9 @@ export class RoomService {
       pollRestricted: room.controls.pollRestricted
     });
 
-    return { 
-      message: 'Room controls updated successfully', 
-      controls: room.controls 
+    return {
+      message: 'Room controls updated successfully',
+      controls: room.controls
     };
   }
 }

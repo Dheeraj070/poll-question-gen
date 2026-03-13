@@ -24,6 +24,7 @@ export interface Room {
   createdAt: Date;
   status: 'active' | 'ended';
   polls: Poll[];
+  totalStudents?: number;
   controls?: {
     micBlocked: boolean;
     pollRestricted: boolean;
