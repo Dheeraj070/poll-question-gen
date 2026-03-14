@@ -1,5 +1,5 @@
 import { IUser } from '#root/shared/interfaces/models.js';
-import { IsNotEmpty, IsOptional, IsString, IsEmail, IsUrl, IsBoolean, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsEmail, IsUrl, IsBoolean, IsDateString, Matches } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { Type } from 'class-transformer';
 
@@ -118,6 +118,7 @@ export class CreateUserProfileBody {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'phoneNumber must be a valid E.164 phone number' })
   phoneNumber?: string;
 
   @IsOptional()
@@ -146,10 +147,65 @@ export class CreateUserProfileBody {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'emergencyContact must be a valid E.164 phone number' })
   emergencyContact?: string;
 }
 
-export class UpdateUserProfileBody extends CreateUserProfileBody { }
+export class UpdateUserProfileBody {
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsUrl({}, { message: 'avatar must be a valid URL address' })
+  avatar?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'phoneNumber must be a valid E.164 phone number' })
+  phoneNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  institution?: string | null;
+
+  @IsOptional()
+  @IsString()
+  designation?: string | null;
+
+  @IsOptional()
+  @IsString()
+  bio?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean | null;
+
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'emergencyContact must be a valid E.164 phone number' })
+  emergencyContact?: string | null;
+}
 
 export class UserProfileResponse {
   @IsString()

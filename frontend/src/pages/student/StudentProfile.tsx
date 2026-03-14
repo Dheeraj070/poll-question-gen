@@ -127,6 +127,21 @@ export default function StudentProfile() {
     if (!user?.userId) return;
     setSaving(true);
     try {
+      // Validation for phone numbers
+      const phoneRegex = /^\+?[1-9]\d{1,14}$/; // E.164 standard phone number regex (basic)
+
+      if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber.trim())) {
+        setError("Invalid phone number format. Please enter a valid number.");
+        setSaving(false);
+        return;
+      }
+
+      if (formData.emergencyContact && !phoneRegex.test(formData.emergencyContact.trim())) {
+        setError("Invalid emergency contact format. Please enter a valid number.");
+        setSaving(false);
+        return;
+      }
+
       // Prepare the data according to UpdateUserProfileBody structure
       const updateData = {
         firstName: formData.firstName.trim(),
@@ -388,9 +403,9 @@ export default function StudentProfile() {
                     <label htmlFor="address" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
                       Address
                     </label>
-                    <input
+                    <textarea
                       id="address"
-                      type="text"
+                      rows={3}
                       className="w-full px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-xs sm:text-base"
                       value={formData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
@@ -514,7 +529,7 @@ export default function StudentProfile() {
                     <textarea
                       id="bio"
                       rows={4}
-                      className="w-full px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-xs sm:text-base resize-none"
+                      className="w-full px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-xs sm:text-base"
                       value={formData.bio}
                       onChange={(e) => handleInputChange('bio', e.target.value)}
                       placeholder="Tell us about yourself..."
