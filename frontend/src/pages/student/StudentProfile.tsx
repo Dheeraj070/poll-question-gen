@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { User, AtSign, BadgeCheck, Edit2, Save, Calendar, UserCheck, BookOpen, Phone, MapPin, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { IUser } from "@/lib/store/auth-store";
+import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
@@ -131,13 +132,13 @@ export default function StudentProfile() {
       const phoneRegex = /^\+?[1-9]\d{1,14}$/; // E.164 standard phone number regex (basic)
 
       if (formData.phoneNumber && !phoneRegex.test(formData.phoneNumber.trim())) {
-        setError("Invalid phone number format. Please enter a valid number.");
+        toast.error("Invalid phone number format. Please enter a valid number.");
         setSaving(false);
         return;
       }
 
       if (formData.emergencyContact && !phoneRegex.test(formData.emergencyContact.trim())) {
-        setError("Invalid emergency contact format. Please enter a valid number.");
+        toast.error("Invalid emergency contact format. Please enter a valid number.");
         setSaving(false);
         return;
       }
@@ -173,9 +174,9 @@ export default function StudentProfile() {
       } : null);
 
       setIsEditing(false);
-      setError(null);
+      toast.success("Profile updated successfully");
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to save profile");
+      toast.error(e?.response?.data?.message || "Failed to save profile");
     } finally {
       setSaving(false);
     }
