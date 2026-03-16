@@ -42,7 +42,12 @@ const UserRoomStatsSchema = new mongoose.Schema({
   fastestResponse: {
     type: Number,
     default: null
-  }
+  },
+
+  totalPoints: {
+    type: Number,
+    default: 0
+  },
 
 },{timestamps:true});
 

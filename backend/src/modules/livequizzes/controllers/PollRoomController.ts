@@ -87,7 +87,7 @@ export class PollRoomController {
   @Post('/:code/polls')
   async createPollInRoom(
     @Param('code') roomCode: string,
-    @Body() body: { question: string; options: string[]; correctOptionIndex: number; creatorId: string; timer?: number }
+    @Body() body: { question: string; options: string[]; correctOptionIndex: number; creatorId: string; timer?: number; maxPoints?: number }
   ) {
     const room = await this.roomService.getRoomByCode(roomCode);
     if (!room) throw new Error('Invalid room');
@@ -97,7 +97,8 @@ export class PollRoomController {
         question: body.question,
         options: body.options,
         correctOptionIndex: body.correctOptionIndex,
-        timer: body.timer
+        timer: body.timer,
+        maxPoints: body.maxPoints
       }
     );
 
