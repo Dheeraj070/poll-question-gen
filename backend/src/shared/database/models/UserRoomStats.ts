@@ -49,6 +49,21 @@ const UserRoomStatsSchema = new mongoose.Schema({
     default: 0
   },
 
+  attempted: {
+    type: Number,
+    default: 0
+  },
+
+  missed: {
+    type: Number,
+    default: 0
+  },
+
+  unattempted: {
+    type: Number,
+    default: 0
+  }
+
 },{timestamps:true});
 
 UserRoomStatsSchema.index({ userId:1, roomCode:1 }, { unique:true });

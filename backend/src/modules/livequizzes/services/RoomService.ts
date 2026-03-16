@@ -209,7 +209,7 @@ export class RoomService {
   }
 
 
-  async enrollStudent(userId: string, roomCode: string) {
+  async enrollStudent(userId: string, roomCode: string, firebaseUID: string) {
     const room = await Room.findOne({ roomCode })
     if (!room) {
       throw new NotFoundError("Room is not found")
@@ -221,9 +221,39 @@ export class RoomService {
       console.log("User Already enrolled in the course")
       return room
     }
-    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $addToSet: { students: userObjectId } }, { new: true })
+    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $addToSet: { students: userObjectId, joinedStudents: firebaseUID } }, { new: true })
     return updatedRoom
   }
+
+  // //lock student in active polls
+  // async lockStudentInActivePolls(roomCode: string, firebaseUID: string) {
+  //     const room = await Room.findOne({ roomCode });
+  //     if (!room) {
+  //       throw new NotFoundError("Room is not found");
+  //     }
+  
+  //     const now = new Date();
+  //     let updated = false;
+  
+  //     room.polls.forEach((poll: any) => {
+  //       const hasEnded = poll.endedAt || (poll.endsAt && poll.endsAt <= now);
+  //       if (hasEnded) {
+  //         return;
+  //       }
+  
+  //       if (!poll.lockedActiveUsers?.includes(firebaseUID)) {
+  //         poll.lockedActiveUsers = [...(poll.lockedActiveUsers || []), firebaseUID];
+  //         updated = true;
+  //       }
+  //     });
+  
+  //     if (updated) {
+  //       await room.save();
+  //       // await recalculateUserPollStatusesForRoom(roomCode);
+  //     }
+  
+  //     return room;
+  //   }
 
   async unEnrollStudent(userId: string, roomCode: string) {
     const room = await Room.findOne({ roomCode })

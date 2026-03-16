@@ -13,6 +13,8 @@ const PollSchema = new mongoose.Schema({
   options: [{ type: String }],
   correctOptionIndex: { type: Number, default: -1 },
   timer: { type: Number, default: 30 },
+  endsAt: { type: Date },
+  lockedActiveUsers: [{ type: String }],
   maxPoints: { type: Number, default: 20 },
   createdAt: { type: Date, default: Date.now },
   answers: [AnswerSchema]
@@ -82,6 +84,7 @@ const RoomSchema = new mongoose.Schema({
   endedAt: { type: Date }, 
   status: { type: String, enum: ['active', 'ended'], default: 'active' },
   polls: [PollSchema],
+  joinedStudents: [{ type: String }],
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   recordingLock: RecordingLockSchema,
   coHosts: [CoHostSchema],
