@@ -111,7 +111,7 @@ export default function ManageRoom() {
         setEndingRoom(roomCode);
 
         try {
-            await api.post(`/livequizzes/rooms/${roomCode}/end`);
+            await api.post(`/livequizzes/rooms/${roomCode}/end`, { teacherId: user?.uid });
 
             // Update the room status locally
             setRooms(prevRooms =>
