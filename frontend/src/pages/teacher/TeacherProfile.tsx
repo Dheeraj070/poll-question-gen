@@ -143,18 +143,27 @@ export default function TeacherProfile() {
         return;
       }
 
+      const trimmedFirstName = formData.firstName.trim();
+      const trimmedLastName = formData.lastName.trim();
+
+      if (!trimmedFirstName || !trimmedLastName) {
+        toast.error("First Name and Last Name are mandatory.");
+        setSaving(false);
+        return;
+      }
+
       // Prepare the data according to UpdateUserProfileBody structure
       const updateData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
         email: user.email, // Required field, keep existing
-        phoneNumber: formData.phoneNumber || null,
-        dateOfBirth: formData.dateOfBirth || undefined,
-        address: formData.address || undefined,
-        emergencyContact: formData.emergencyContact || undefined,
-        institution: formData.institution || null,
-        designation: formData.designation || null,
-        bio: formData.bio || null,
+        phoneNumber: formData.phoneNumber?.trim() || "",
+        dateOfBirth: formData.dateOfBirth || "",
+        address: formData.address?.trim() || "",
+        emergencyContact: formData.emergencyContact?.trim() || "",
+        institution: formData.institution?.trim() || "",
+        designation: formData.designation?.trim() || "",
+        bio: formData.bio?.trim() || "",
       };
 
       const updated = await apiService.updateUserProfile(user.userId, updateData);
@@ -257,7 +266,22 @@ export default function TeacherProfile() {
               {!isEditing ? (
                 <Button
                   variant="outline"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    if (user) {
+                      setFormData({
+                        firstName: user.firstName || "",
+                        lastName: user.lastName || "",
+                        phoneNumber: user.phoneNumber || "",
+                        dateOfBirth: user.dateOfBirth || "",
+                        address: user.address || "",
+                        emergencyContact: user.emergencyContact || "",
+                        institution: user.institution || "",
+                        designation: user.designation || "",
+                        bio: user.bio || "",
+                      });
+                    }
+                    setIsEditing(true);
+                  }}
                   className="flex items-center gap-2"
                 >
                   <Edit2 className="h-4 w-4" />
@@ -394,6 +418,7 @@ export default function TeacherProfile() {
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:text-white"
                         value={formData.dateOfBirth}
                         onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                        max={new Date().toISOString().split("T")[0]}
                         title="Select your date of birth"
                         disabled={saving}
                       />
@@ -437,7 +462,7 @@ export default function TeacherProfile() {
                       <Phone className="h-5 w-5 text-gray-500" />
                       <div>
                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400 block">Phone</span>
-                        <span className="text-gray-800 dark:text-gray-200">{user.phoneNumber || "Not specified"}</span>
+                        <span className="text-gray-800 dark:text-gray-200">{user.phoneNumber?.trim() || "Not specified"}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -466,14 +491,14 @@ export default function TeacherProfile() {
                       <MapPin className="h-5 w-5 text-gray-500" />
                       <div>
                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400 block">Address</span>
-                        <span className="text-gray-800 dark:text-gray-200">{user.address || "Not specified"}</span>
+                        <span className="text-gray-800 dark:text-gray-200">{user.address?.trim() || "Not specified"}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <AlertCircle className="h-5 w-5 text-gray-500" />
                       <div>
                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400 block">Emergency Contact</span>
-                        <span className="text-gray-800 dark:text-gray-200">{user.emergencyContact || "Not specified"}</span>
+                        <span className="text-gray-800 dark:text-gray-200">{user.emergencyContact?.trim() || "Not specified"}</span>
                       </div>
                     </div>
                   </div>
@@ -543,11 +568,11 @@ export default function TeacherProfile() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400 block mb-1">Institution</span>
-                      <span className="text-gray-800 dark:text-gray-200">{user.institution || "Not specified"}</span>
+                      <span className="text-gray-800 dark:text-gray-200">{user.institution?.trim() || "Not specified"}</span>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400 block mb-1">Designation</span>
-                      <span className="text-gray-800 dark:text-gray-200">{user.designation || "Not specified"}</span>
+                      <span className="text-gray-800 dark:text-gray-200">{user.designation?.trim() || "Not specified"}</span>
                     </div>
                   </div>
                   {user.bio && (

@@ -1,5 +1,6 @@
 import { IUser } from '#root/shared/interfaces/models.js';
 import { IsNotEmpty, IsOptional, IsString, IsEmail, IsUrl, IsBoolean, IsDateString, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { Type } from 'class-transformer';
 
@@ -100,10 +101,14 @@ export class UserNotFoundErrorResponse {
 }
 
 export class CreateUserProfileBody {
+  @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   firstName!: string;
 
+  @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   lastName!: string;
 
   @IsEmail()
@@ -154,10 +159,14 @@ export class CreateUserProfileBody {
 export class UpdateUserProfileBody {
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value?.trim())
   lastName?: string;
 
   @IsOptional()
@@ -174,19 +183,23 @@ export class UpdateUserProfileBody {
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim() === '' ? null : value?.trim())
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'phoneNumber must be a valid E.164 phone number' })
   phoneNumber?: string | null;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   institution?: string | null;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   designation?: string | null;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim())
   bio?: string | null;
 
   @IsOptional()
@@ -194,15 +207,18 @@ export class UpdateUserProfileBody {
   isVerified?: boolean | null;
 
   @IsOptional()
+  @Transform(({ value }) => value?.trim() === '' ? null : value?.trim())
   @IsDateString()
   dateOfBirth?: string | null;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim() === '' ? null : value?.trim())
   address?: string | null;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value?.trim() === '' ? null : value?.trim())
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'emergencyContact must be a valid E.164 phone number' })
   emergencyContact?: string | null;
 }
