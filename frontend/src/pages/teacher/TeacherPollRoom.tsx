@@ -339,6 +339,7 @@ export default function TeacherPollRoom() {
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctOptionIndex, setCorrectOptionIndex] = useState<number>(0);
   const [timer, _setTimer] = useState<number>(30);
+  const [maxPoints, setMaxPoints] = useState<number>(20);
   const [pollResults, setPollResults] = useState<PollResults>({});
   // State for live poll results
   type LivePollResult = {
@@ -1315,7 +1316,8 @@ export default function TeacherPollRoom() {
         question,
         options: options.filter(opt => opt.trim()),
         creatorId: currentUser?.userId,
-        timer: Number(timer),
+        timer: Number(questionTimers[currentQuestionIndex]?.initialTime ?? timer),
+        maxPoints: Number(maxPoints),
         correctOptionIndex
       });
 
@@ -1325,6 +1327,7 @@ export default function TeacherPollRoom() {
       setQuestion("");
       setOptions(["", "", "", ""]);
       setCorrectOptionIndex(0);
+      setMaxPoints(20);
       // setShowPreview(false);
       fetchResults()
     } catch (error) {
@@ -3639,6 +3642,24 @@ export default function TeacherPollRoom() {
                                             </p>
                                           </div>
 
+                                          <div className="flex-1 lg:flex-initial">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                              Max Points
+                                            </label>
+                                            <Input
+                                              type="number"
+                                              value={maxPoints}
+                                              min={1}
+                                              onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
+                                              className="dark:bg-gray-800/50 text-sm w-full sm:w-36"
+                                              aria-label="Maximum points for this generated poll"
+                                              disabled={launchedQuestions.has(currentQuestionIndex)||questionTimers[currentQuestionIndex]?.isActive}
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              Maximum score awarded for a correct answer.
+                                            </p>
+                                          </div>
+
                                           <Button
                                             onClick={handleLaunchPoll}
                                             disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
@@ -3855,7 +3876,7 @@ export default function TeacherPollRoom() {
                           <Input
                             type="number"
                             placeholder="e.g. 30"
-                            value={questionTimers[currentQuestionIndex]?.initialTime ?? 30}
+                            value={questionTimers[currentQuestionIndex]?.initialTime ? questionTimers[currentQuestionIndex]?.initialTime : 30}
                             min={5}
                             onChange={(e) => {
                               const newTime = Number(e.target.value);
@@ -3870,14 +3891,27 @@ export default function TeacherPollRoom() {
                             }}
                             className="dark:bg-gray-800/50 text-sm w-36"
                             aria-label="Timer in seconds"
-                            disabled={questionTimers[currentQuestionIndex]?.isActive ||
-                              (launchedQuestions.has(currentQuestionIndex) &&
-                                (questionTimers[currentQuestionIndex]?.timeLeft === 0 ||
-                                  questionTimers[currentQuestionIndex]?.isLaunched))}
                           />
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           The timer controls how long the poll remains open for students to vote.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Max Points
+                        </label>
+                        <Input
+                          type="number"
+                          value={maxPoints}
+                          min={1}
+                          onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
+                          className="dark:bg-gray-800/50 text-sm w-36"
+                          aria-label="Maximum points for this poll"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Maximum score awarded for a correct answer.
                         </p>
                       </div>
 

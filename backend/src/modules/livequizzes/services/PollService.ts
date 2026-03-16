@@ -7,6 +7,7 @@ import { evaluateBadges } from '../utils/achievementEngine.js';
 import UserAchievement from '#root/shared/database/models/UserAchievement.js';
 import Badge from '#root/shared/database/models/Badge.js';
 import { updateRoomStats } from '../utils/statsService.js';
+import { calculateScore } from '../utils/calculateScore.js';
 
 interface InMemoryPoll {
   pollId: string;
@@ -21,6 +22,7 @@ interface InMemoryPoll {
   timeLeft: number;
   roomCode: string;
   createdAt?: Date;
+  maxPoints?: number;
 }
 
 @injectable()
@@ -33,6 +35,7 @@ export class PollService {
     options: string[];
     correctOptionIndex: number;
     timer?: number;
+    maxPoints?: number;
   }) {
     const pollId = crypto.randomUUID();
     const createdAt = new Date();
@@ -42,6 +45,7 @@ export class PollService {
       options: data.options,
       correctOptionIndex: data.correctOptionIndex,
       timer: data.timer ?? 30,
+      maxPoints: data.maxPoints ?? 20,
       createdAt,
       answers: []
     };
@@ -58,6 +62,7 @@ export class PollService {
       timeLeft: data.timer ?? 0,
       roomCode,
       createdAt,
+      maxPoints: data.maxPoints ?? 20,
     };
 
     await Room.updateOne(
@@ -100,10 +105,6 @@ export class PollService {
     this.emitPollUpdate(roomCode, pollId);
 
     const answeredAt = new Date();
-    await Room.updateOne(
-      { roomCode, "polls._id": pollId },
-      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt } } }
-    );
 
     // Determine correctness
     const isCorrect = poll.correctOptionIndex === answerIndex;
@@ -111,12 +112,27 @@ export class PollService {
     // Calculate response time (seconds)
     const responseTime = (answeredAt.getTime() - poll.createdAt.getTime()) / 1000;
 
+    const points = calculateScore({
+      isCorrect,
+      responseTime,
+      maxPoints: poll?.maxPoints,
+      timer: poll.timer
+    });
+
+    await Room.updateOne(
+      { roomCode, "polls._id": pollId },
+      { $push: { "polls.$.answers": { userId, answerIndex, answeredAt, points } } }
+    );
+
+
+
     // Update room stats
     const stats = await updateRoomStats({
       userId,
       roomCode,
       isCorrect,
-      responseTime
+      responseTime,
+      points,
     });
 
     // Evaluate badges and notify room in real time when unlocked
