@@ -225,35 +225,6 @@ export class RoomService {
     return updatedRoom
   }
 
-  // //lock student in active polls
-  // async lockStudentInActivePolls(roomCode: string, firebaseUID: string) {
-  //     const room = await Room.findOne({ roomCode });
-  //     if (!room) {
-  //       throw new NotFoundError("Room is not found");
-  //     }
-  
-  //     const now = new Date();
-  //     let updated = false;
-  
-  //     room.polls.forEach((poll: any) => {
-  //       const hasEnded = poll.endedAt || (poll.endsAt && poll.endsAt <= now);
-  //       if (hasEnded) {
-  //         return;
-  //       }
-  
-  //       if (!poll.lockedActiveUsers?.includes(firebaseUID)) {
-  //         poll.lockedActiveUsers = [...(poll.lockedActiveUsers || []), firebaseUID];
-  //         updated = true;
-  //       }
-  //     });
-  
-  //     if (updated) {
-  //       await room.save();
-  //       // await recalculateUserPollStatusesForRoom(roomCode);
-  //     }
-  
-  //     return room;
-  //   }
 
   async unEnrollStudent(userId: string, roomCode: string) {
     const room = await Room.findOne({ roomCode })

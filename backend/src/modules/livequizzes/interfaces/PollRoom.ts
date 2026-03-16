@@ -14,7 +14,6 @@ export interface Poll {
   correctOptionIndex: number;
   timer: number;
   maxPoints?: number;
-  endsAt?: Date;
   lockedActiveUsers?: string[];
   createdAt: Date;
   answers: PollAnswer[];
