@@ -1291,7 +1291,7 @@ export default function TeacherPollRoom() {
     setIsEndingRoom(true);
     try {
       await api.post(`/livequizzes/rooms/${roomCode}/end`, {
-        teacherId: currentUser?.userId,
+        teacherId: currentUser?.uid,
       });
 
       toast.success("Room ended successfully");
@@ -1315,7 +1315,9 @@ export default function TeacherPollRoom() {
       const response = await api.post(`/livequizzes/rooms/${roomCode}/polls`, {
         question,
         options: options.filter(opt => opt.trim()),
-        creatorId: currentUser?.userId,
+        creatorId: currentUser?.uid,
+        // timer: Number(timer),
+        // creatorId: currentUser?.userId,
         timer: Number(questionTimers[currentQuestionIndex]?.initialTime ?? timer),
         maxPoints: Number(maxPoints),
         correctOptionIndex

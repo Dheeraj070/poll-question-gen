@@ -157,8 +157,8 @@ export class RoomService {
     return room ? room.status === 'ended' : false;
   }
 
-  async endRoom(code: string): Promise<boolean> {
-    const updated = await Room.findOneAndUpdate({ roomCode: code }, { status: 'ended' }, { new: true }).lean();
+  async endRoom(code: string, teacherId: string): Promise<boolean> {
+    const updated = await Room.findOneAndUpdate({ roomCode: code, teacherId }, { status: 'ended' }, { new: true }).lean();
     pollSocket?.emitToRoom(code, 'room-ended', {
       message: 'Room has ended'
     });
@@ -605,7 +605,7 @@ export class RoomService {
     if (isMicMuted && room.recordingLock?.userId === userId) {
       room.recordingLock = null;
       lockReleased = true;
-      }
+    }
 
     await room.save();
     if (lockReleased) {
@@ -626,11 +626,11 @@ export class RoomService {
   }
   // Update room controls (Mic, Poll restrictions) and emit to clients
   async updateRoomControls(
-    roomCode: string, 
-    userId: string, 
+    roomCode: string,
+    userId: string,
     controlsUpdate: { micBlocked?: boolean; pollRestricted?: boolean }
   ): Promise<{ message: string; controls: any }> {
-    
+
     const room = await Room.findOne({ roomCode });
     if (!room) {
       throw new NotFoundError("Room is not found");
@@ -650,9 +650,9 @@ export class RoomService {
       pollRestricted: room.controls.pollRestricted
     });
 
-    return { 
-      message: 'Room controls updated successfully', 
-      controls: room.controls 
+    return {
+      message: 'Room controls updated successfully',
+      controls: room.controls
     };
   }
 }

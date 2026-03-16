@@ -183,7 +183,7 @@ describe('PollRoomController Integration Tests', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
-        expect(mockRoomService.endRoom).toHaveBeenCalledWith('abc123');
+        expect(mockRoomService.endRoom).toHaveBeenCalledWith('abc123', 'teach1');
     });
 
     it('POST /livequizzes/rooms/:code/generate-questions - generate questions from YouTube URL', async () => {

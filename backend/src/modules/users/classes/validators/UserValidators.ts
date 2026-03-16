@@ -109,6 +109,7 @@ export class CreateUserProfileBody {
   @IsEmail()
   email!: string;
 
+  @IsOptional()
   @IsString()
   role!: string;
 
