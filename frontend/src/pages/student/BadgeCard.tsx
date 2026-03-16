@@ -12,20 +12,20 @@ export default function BadgeCard({ badge }: Props) {
     const Icon = tier.Icon;
     return (
         <div
-            className={`group relative flex flex-col items-center justify-center p-5 rounded-2xl border transition-all duration-300 hover:shadow-xl hover:-translate-y-2 cursor-default overflow-hidden ${tier.bg}`}
+            className={`group relative flex cursor-default flex-col items-center justify-center overflow-hidden rounded-2xl border bg-gradient-to-br p-5 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${tier.bg} ${tier.border}`}
         >
             {/* Decorative background glow on hover */}
-            <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300 -z-10 shadow-sm" />
+            <div className="absolute inset-0 -z-10 rounded-2xl bg-white opacity-0 shadow-sm transition-opacity duration-300 group-hover:opacity-100 dark:bg-slate-950/95" />
 
             {/* Primary Content Container (fades out slightly on hover to focus on description) */}
             <div className="flex flex-col items-center transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
                 {/* Icon Wrapper with Ring Effect */}
                 <div className="relative mb-3">
-                    <div className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transform transition-transform duration-300 ${tier.iconContainer}`}>
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br shadow-lg transition-transform duration-300 ${tier.iconContainer}`}>
                         <Icon className={`w-7 h-7 ${tier.iconColor}`} />
                     </div>
                     {/* Level Indicator or Sparkle */}
-                    <div className="absolute -top-1 -right-1 bg-white p-1 rounded-full shadow-sm border border-gray-100">
+                    <div className="absolute -right-1 -top-1 rounded-full border border-gray-100 bg-white p-1 shadow-sm dark:border-slate-600 dark:bg-slate-950">
                         <Sparkles className="w-3 h-3 text-yellow-500 animate-pulse" />
                     </div>
                 </div>
@@ -36,7 +36,7 @@ export default function BadgeCard({ badge }: Props) {
                         {badge.badgeId?.name || "Achievement"}
                     </span>
                     <div className="flex items-center gap-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/60 border border-current/10 ${tier.categoryText}`}>
+                        <span className={`rounded-full border border-current/10 bg-white/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider dark:bg-slate-900/60 ${tier.categoryText}`}>
                             {badge.badgeId?.category || "General"}
                         </span>
                     </div>
@@ -52,7 +52,7 @@ export default function BadgeCard({ badge }: Props) {
             </div>
 
             {/* Progress Bar (at bottom) */}
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-black/5 overflow-hidden">
+            <div className="absolute bottom-0 left-0 h-1 w-full overflow-hidden bg-black/5 dark:bg-white/10">
                 <div className={`h-full opacity-30 w-full bg-current ${tier.categoryText}`} />
             </div>
         </div>
