@@ -162,7 +162,8 @@ export class RoomService {
   }
 
   async getRoomsByTeacherAndStatus(teacherId: string, status: 'active' | 'ended'): Promise<RoomType[]> {
-    return await Room.find({ teacherId, status }).lean();
+    const rooms = await Room.find({ teacherId, status }).lean();
+    return rooms.map(room => this.mapRoom(room));
   }
 
   async isRoomValid(code: string): Promise<boolean> {
@@ -176,7 +177,7 @@ export class RoomService {
   }
 
   async endRoom(code: string, teacherId: string): Promise<boolean> {
-    const updated = await Room.findOneAndUpdate({ roomCode: code, teacherId }, { status: 'ended' }, { new: true }).lean();
+    const updated = await Room.findOneAndUpdate({ roomCode: code, teacherId }, { status: 'ended', endedAt: new Date() }, { new: true }).lean();
     pollSocket?.emitToRoom(code, 'room-ended', {
       message: 'Room has ended'
     });
@@ -208,8 +209,10 @@ export class RoomService {
       name: roomDoc.name,
       teacherId: roomDoc.teacherId,
       createdAt: roomDoc.createdAt,
+      endedAt: roomDoc.endedAt,
       status: roomDoc.status,
       totalStudents: new Set(roomDoc.students?.map((s: any) => s.toString()) || []).size,
+      coHosts: roomDoc.coHosts,
       controls: roomDoc.controls || { micBlocked: false, pollRestricted: false },
       polls: (roomDoc.polls || []).map((p: any): Poll => ({
         _id: p._id.toString(),  // convert ObjectId to string if needed
@@ -477,7 +480,6 @@ export class RoomService {
     const rooms = await Room.aggregate([
       {
         $match: {
-          status: "active",
           coHosts: {
             $elemMatch: {
               userId: userId,
@@ -511,6 +513,15 @@ export class RoomService {
         $unwind: {
           path: "$teacher",
           preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $addFields: {
+          totalStudents: {
+            $size: {
+              $setUnion: [{ $ifNull: ["$students", []] }, []]
+            }
+          }
         }
       },
       {

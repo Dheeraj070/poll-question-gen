@@ -23,6 +23,7 @@ interface Room {
     roomCode: string;
     name: string;
     createdAt: string;
+    endedAt?: string;
     status: 'active' | 'ended';
     teacherId: string;
     coHosts?: Cohost[];
@@ -93,11 +94,13 @@ export default function ManageRoom() {
     };
 
     const calculateDuration = (room: Room) => {
-        // This is a placeholder calculation since we don't have duration data
-        // You might want to store actual session duration in your backend
-        const pollCount = room.polls.length;
-        const estimatedDuration = pollCount * 2; // Estimate 2 minutes per poll
-        return `~${estimatedDuration} mins`;
+        const start = new Date(room.createdAt).getTime();
+        const end = room.status === 'ended' && room.endedAt
+            ? new Date(room.endedAt).getTime()
+            : Date.now();
+        const diffMs = Math.max(0, end - start);
+        const diffMins = Math.ceil(diffMs / 60000);
+        return `${diffMins} mins`;
     };
 
     /* const getStatusColor = (status: string) => {
