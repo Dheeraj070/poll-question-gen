@@ -22,6 +22,7 @@ interface InMemoryPoll {
   timeLeft: number;
   roomCode: string;
   createdAt?: Date;
+  lockedActiveUsers?: string[];
   maxPoints?: number;
 }
 
@@ -39,6 +40,7 @@ export class PollService {
   }) {
     const pollId = crypto.randomUUID();
     const createdAt = new Date();
+    const lockedActiveUsers: string[] = pollSocket.getActiveUsersInRoom(roomCode);
     const poll = {
       _id: pollId,
       question: data.question,
@@ -47,6 +49,7 @@ export class PollService {
       timer: data.timer ?? 30,
       maxPoints: data.maxPoints ?? 20,
       createdAt,
+      lockedActiveUsers,
       answers: []
     };
 
@@ -62,6 +65,7 @@ export class PollService {
       timeLeft: data.timer ?? 0,
       roomCode,
       createdAt,
+      lockedActiveUsers: [...lockedActiveUsers],
       maxPoints: data.maxPoints ?? 20,
     };
 

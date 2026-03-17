@@ -7,7 +7,8 @@ import UserRoomStats from '#root/shared/database/models/UserRoomStats.js';
 @injectable()
 export class DashboardService {
     async getStudentDashboardData(studentId: string) {
-        const joinedRooms = await Room.find({ 'polls.answers.userId': studentId }).lean();
+       
+        const joinedRooms = await Room.find({ joinedStudents: studentId }).lean();
 
         let totalPolls = 0;
         let takenPolls = 0;
@@ -25,16 +26,6 @@ export class DashboardService {
         let roomWiseScores: any[] = [];
 
         for (const room of joinedRooms) {
-            // Find the earliest answer time for this user in this room (join time proxy)
-            let joinTime: Date | null = null;
-            for (const poll of room.polls ?? []) {
-                const userAnswer = poll.answers?.find((a: any) => a.userId === studentId);
-                if (userAnswer && userAnswer.answeredAt) {
-                    if (!joinTime || userAnswer.answeredAt < joinTime) {
-                        joinTime = userAnswer.answeredAt;
-                    }
-                }
-            }
 
             let roomScore = 0;
             let roomMaxPoints = 0;
@@ -72,17 +63,31 @@ export class DashboardService {
                         maxPoints: poll.maxPoints ?? 20
                     });
                 } else {
-                    // No answer - check if poll was before or after join
-                    if (joinTime && poll.createdAt < joinTime) {
+                    // No answer - check if poll was missed
+                    if (!(poll.lockedActiveUsers ?? []).includes(studentId)) {
+                        // Absent: student was not present when poll launched
                         absentPolls++;
                     } else {
+                        // Unattempted: student was present but didn't answer
                         unattemptedPolls++;
                         roomUnattemptedPolls++;
-                        // For unattempted polls, consider points as 0
                         const maxPoints = poll.maxPoints ?? 20;
                         roomMaxPoints += maxPoints;
                         totalMaxPoints += maxPoints;
-                        // totalScore += 0 (already 0)
+
+                        pollResults.push({
+                            name: poll.question || 'Untitled Poll',
+                            score: 0,
+                            maxPoints: maxPoints,
+                            points: 0,
+                            date: poll.createdAt || new Date()
+                        });
+
+                        scoreProgression.push({
+                            poll: poll.question || 'Poll',
+                            score: 0,
+                            maxPoints: poll.maxPoints ?? 20
+                        });
                     }
                 }
 

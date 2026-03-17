@@ -14,6 +14,7 @@ export interface Poll {
   correctOptionIndex: number;
   timer: number;
   maxPoints?: number;
+  lockedActiveUsers?: string[];
   createdAt: Date;
   answers: PollAnswer[];
 }
@@ -30,6 +31,7 @@ export interface Room {
     micBlocked: boolean;
     pollRestricted: boolean;
   };
+  joinedStudents?: string[];
 }
 
 export interface CohostJwtPayload extends JwtPayload {
