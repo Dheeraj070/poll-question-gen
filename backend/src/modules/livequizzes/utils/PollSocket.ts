@@ -13,6 +13,8 @@ class PollSocket {
   private io: Server | null = null;
   // For tracking active connections by socket ID and room code
   private activeConnections: Map<string, string[]> = new Map();
+  private activeUsersPerRoom: Map<string, Set<string>> = new Map(); // roomCode -> Set<firebaseUID>
+
 
   constructor(private readonly roomService: RoomService,
     private readonly userRepo: UserRepository
@@ -34,10 +36,10 @@ class PollSocket {
           const isActive = await this.roomService.isRoomValid(roomCode);
           if (typeof email === 'string' && email.trim() !== '') {
             const user = await this.userRepo.findByEmail(email)
+            console.log('user:', user)
             const userId = user?._id;
-            if (userId) {
-              await this.roomService.enrollStudent(userId as string, roomCode)
-            }
+            socket.data.userId = user?.firebaseUID;
+            await this.roomService.enrollStudent(userId as string, roomCode, user?.firebaseUID as string)
           }
           if (isActive) {
             socket.join(roomCode);
@@ -46,9 +48,16 @@ class PollSocket {
               this.activeConnections.set(socket.id, []);
             }
             this.activeConnections.get(socket.id)?.push(roomCode);
+            if (socket.data.userId) {
+              if (!this.activeUsersPerRoom.has(roomCode)) {
+                this.activeUsersPerRoom.set(roomCode, new Set());
+              }
+              this.activeUsersPerRoom.get(roomCode)!.add(socket.data.userId);
+            }
             const room = await this.roomService.getRoomByCode(roomCode)
             // socket.emit('room-data',room)
             this.emitToRoom(roomCode, 'room-updated', room)
+            console.log('room:', room)
             console.log(`Socket ${socket.id} joined active room: ${roomCode}`);
             console.log(`Active connections: ${this.activeConnections.size}`);
           } else {
@@ -68,6 +77,9 @@ class PollSocket {
           await this.roomService.unEnrollStudent(userId, roomCode)
         }
         socket.leave(roomCode);
+        if (socket.data.userId) {
+          this.activeUsersPerRoom.get(roomCode)?.delete(socket.data.userId);
+        }
         const room = await this.roomService.getRoomByCode(roomCode)
         this.emitToRoom(roomCode, 'room-updated', room)
         const rooms = this.activeConnections.get(socket.id) || [];
@@ -119,6 +131,11 @@ class PollSocket {
 
             this.activeConnections.delete(studentSocketId);
 
+            const removedFirebaseUID = studentSocket?.data?.userId;
+            if (removedFirebaseUID) {
+              this.activeUsersPerRoom.get(roomCode)?.delete(removedFirebaseUID);
+            }
+
           }
           const updatedRoom = await this.roomService.getRoomByCode(roomCode);
 
@@ -162,10 +179,21 @@ class PollSocket {
       })
 
       socket.on('disconnect', () => {
+        const rooms = this.activeConnections.get(socket.id) || [];
+        const firebaseUID = socket.data.userId;
+        for (const roomCode of rooms) {
+          if (firebaseUID) {
+            this.activeUsersPerRoom.get(roomCode)?.delete(firebaseUID);
+          }
+        }
         this.activeConnections.delete(socket.id);
         console.log(`Socket ${socket.id} disconnected. Active connections: ${this.activeConnections.size}`);
       });
     });
+  }
+
+  getActiveUsersInRoom(roomCode: string): string[] {
+    return Array.from(this.activeUsersPerRoom.get(roomCode) ?? []);
   }
 
   emitToRoom(roomCode: string, event: string, data: any) {

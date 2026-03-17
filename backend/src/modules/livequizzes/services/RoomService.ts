@@ -231,8 +231,7 @@ export class RoomService {
   }
 
 
-  async enrollStudent(userId: string, roomCode: string) {
-    if (!userId) return;
+  async enrollStudent(userId: string, roomCode: string, firebaseUID: string) {
     const room = await Room.findOne({ roomCode })
     if (!room) {
       throw new NotFoundError("Room is not found")
@@ -244,9 +243,10 @@ export class RoomService {
       console.log("User Already enrolled in the course")
       return room
     }
-    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $addToSet: { students: userObjectId } }, { new: true })
+    const updatedRoom = await Room.findOneAndUpdate({ roomCode }, { $addToSet: { students: userObjectId, joinedStudents: firebaseUID } }, { new: true })
     return updatedRoom
   }
+
 
   async unEnrollStudent(userId: string, roomCode: string) {
     if (!userId) return;
