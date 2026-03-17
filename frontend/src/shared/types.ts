@@ -21,3 +21,5 @@ export interface UserAchievement {
   badgeId: Badge;
   earnedAt: string;
 }
+
+ export type ModalType = 'delete' | 'edit' | 'default';
