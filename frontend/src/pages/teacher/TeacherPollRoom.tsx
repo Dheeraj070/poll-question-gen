@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
-import { CohostUser } from "@/shared/types";
+import { CohostUser, ModalType } from "@/shared/types";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 
 const copyToClipboard = (text: string) => {
@@ -281,6 +282,21 @@ export default function TeacherPollRoom() {
       toast.error("Failed to update co-host microphone");
     }
   };
+
+  //confirmation modal state
+    const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    type: ModalType;
+    title: string;
+    description: string;
+    confirmText?: string;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    type: 'default',
+    title: 'Launch Poll',
+    description: 'Are you sure you want to launch this poll?',
+  });
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -2013,9 +2029,7 @@ export default function TeacherPollRoom() {
   };
 
   const handleLaunchPoll = async () => {
-    const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
-    if (confirmed) {
       const currentQ = generatedQuestions[currentQuestionIndex];
       const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
 
@@ -2040,7 +2054,8 @@ export default function TeacherPollRoom() {
         const newSet = new Set(prev).add(currentQuestionIndex);
         return newSet;
       });
-    }
+
+      setModalState((prev)=>({...prev,isOpen:false}))
   };
 
   if (!roomCode) return <div>Loading...</div>;
@@ -3663,7 +3678,7 @@ export default function TeacherPollRoom() {
                                           </div>
 
                                           <Button
-                                            onClick={handleLaunchPoll}
+                                            onClick={() => setModalState((prev) => ({...prev, isOpen: true}))}
                                             disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
                                             className="w-full lg:w-auto lg:mt-5 bg-purple-600 hover:bg-purple-700 text-white"
                                           >
@@ -4294,6 +4309,16 @@ export default function TeacherPollRoom() {
           </div>
         </div>
       </div>
+       <ConfirmationModal
+        isOpen={modalState.isOpen}
+        onClose={()=> setModalState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={handleLaunchPoll}
+        title={modalState.title}
+        description={modalState.description}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        isLoading={modalState.isLoading}
+      />
     </div>
   );
 }
