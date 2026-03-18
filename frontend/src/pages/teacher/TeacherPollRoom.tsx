@@ -24,11 +24,11 @@ import { useConfirmationModal } from "@/hooks/useConfirmationModal";
 
 
 
-const copyToClipboard = (text: string) => {
+const copyToClipboard = (text: string, message: string) => {
   navigator.clipboard.writeText(text).then(() => {
-    toast.success("Room code copied to clipboard!");
+    toast.success(message ?? 'Copied to clipboard!');
   }).catch(() => {
-    toast.error("Failed to copy room code");
+    toast.error("Failed to copy to clipboard");
   });
 };
 
@@ -2360,7 +2360,7 @@ export default function TeacherPollRoom() {
                 </div>
 
                 <Button
-                  onClick={() => copyToClipboard(roomCode)}
+                  onClick={() => copyToClipboard(roomCode, "Room code copied to clipboard!")}
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1 sm:gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 text-xs sm:text-sm"
@@ -2377,7 +2377,7 @@ export default function TeacherPollRoom() {
                     {inviteLink ? (
                       <Button
                         variant="outline"
-                        onClick={() => copyToClipboard(inviteLink)}
+                        onClick={() => copyToClipboard(inviteLink,"Invite link copied to clipboard!")}
                         className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
                       >
                         <Copy size={16} />
