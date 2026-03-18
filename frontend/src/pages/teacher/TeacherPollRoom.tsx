@@ -1302,6 +1302,18 @@ export default function TeacherPollRoom() {
   };
 
   const endRoom = async () => {
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to end this room?',
+      description: `This action cannot be undone.
+• All students will be disconnected
+• Active polls will be stopped
+• The room will be permanently closed`,
+      confirmText: 'End Room',
+    })
+
+    if (!confirmed) return;
     setIsEndingRoom(true);
     try {
       await api.post(`/livequizzes/rooms/${roomCode}/end`, {
@@ -2396,13 +2408,22 @@ export default function TeacherPollRoom() {
                     )}
 
                     <Button
-                      onClick={() => setShowEndRoomConfirm(true)}
+                      onClick={endRoom}
                       variant="destructive"
                       className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
                       disabled={isEndingRoom}
                     >
-                      <LogOut size={16} />
-                      <span className="xs:inline">End Room</span>
+                      {isEndingRoom ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Ending Room...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut size={16} />
+                          <span className="xs:inline">End Room</span>
+                        </>
+                      )}
                     </Button>
                   </>
                 )}
@@ -2502,15 +2523,24 @@ export default function TeacherPollRoom() {
                       <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                         <Button
                           onClick={() => {
-                            setShowEndRoomConfirm(true);
                             setIsMobileMenuOpen(false);
+                            endRoom();
                           }}
                           variant="destructive"
                           className="w-full justify-start"
                           disabled={isEndingRoom}
                         >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          End Room
+                          {isEndingRoom ? (
+                              <>
+                                <Loader2 size={16} className="animate-spin" />
+                                Ending Room...
+                              </>
+                            ) : (
+                              <>
+                                <LogOut className="w-4 h-4 mr-2" />
+                                End Room
+                              </>
+                            )}
                         </Button>
                       </div>
                     )
@@ -2521,7 +2551,7 @@ export default function TeacherPollRoom() {
               {/* Main content area */}
               <div className="flex-1 overflow-auto md:pt-4">
                 {/* End Room Confirmation Modal */}
-                {showEndRoomConfirm && (
+                {/* {showEndRoomConfirm && (
                   <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
                     <Card className="w-full max-w-md mx-3 bg-white dark:bg-gray-800">
                       <CardHeader>
@@ -2569,7 +2599,7 @@ export default function TeacherPollRoom() {
                       </CardContent>
                     </Card>
                   </div>
-                )}
+                )} */}
 
                 {/* GenAI Tab */}
                 <div className="flex-1 px-1 border-r border-r-slate-200 dark:border-r-gray-700 bg-white/90 dark:bg-gray-900/90 shadow">
