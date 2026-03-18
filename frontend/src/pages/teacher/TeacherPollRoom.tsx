@@ -18,8 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
-import { CohostUser, ModalType } from "@/shared/types";
-import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { CohostUser } from "@/shared/types";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { useConfirmationModal } from "@/hooks/useConfirmationModal";
+
 
 
 const copyToClipboard = (text: string) => {
@@ -95,6 +97,7 @@ type GeneratedQuestion = {
 export default function TeacherPollRoom() {
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
+  const { showModal, modalProps } = useConfirmationModal();
   const roomCode: string = params.code as string;
   const { user: currentUser } = useAuthStore();
   const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
@@ -282,21 +285,6 @@ export default function TeacherPollRoom() {
       toast.error("Failed to update co-host microphone");
     }
   };
-
-  //confirmation modal state
-    const [modalState, setModalState] = useState<{
-    isOpen: boolean;
-    type: ModalType;
-    title: string;
-    description: string;
-    confirmText?: string;
-    isLoading?: boolean;
-  }>({
-    isOpen: false,
-    type: 'default',
-    title: 'Launch Poll',
-    description: 'Are you sure you want to launch this poll?',
-  });
 
   // Helper Hooks - defined at the top to avoid temporal dead zone
   const filterQuestionOptions = useCallback((questionData: GeneratedQuestion): GeneratedQuestion => {
@@ -2030,6 +2018,16 @@ export default function TeacherPollRoom() {
 
   const handleLaunchPoll = async () => {
 
+      //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to launch this poll?',
+      description: 'Once launched, students will be able to see the question and submit their responses. the poll will run until the timer expires.',
+      confirmText: 'Launch Poll',
+    })
+
+    if (!confirmed) return;
+
       const currentQ = generatedQuestions[currentQuestionIndex];
       const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
 
@@ -2055,7 +2053,6 @@ export default function TeacherPollRoom() {
         return newSet;
       });
 
-      setModalState((prev)=>({...prev,isOpen:false}))
   };
 
   if (!roomCode) return <div>Loading...</div>;
@@ -3463,16 +3460,21 @@ export default function TeacherPollRoom() {
                                               <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => {
-                                                  if (window.confirm('Are you sure you want to delete this question?')) {
+                                                  onClick={async () => {
+                                                    const confirmed = await showModal({
+                                                      type: 'delete',
+                                                      title: 'are you sure you want to delete this question?',
+                                                      description: 'This action cannot be undone.',
+                                                      confirmText: 'Delete Question',
+                                                    })
+                                                    if (!confirmed) return;
                                                     const newQuestions = [...generatedQuestions];
                                                     newQuestions.splice(currentQuestionIndex, 1);
                                                     setGeneratedQuestions(newQuestions);
                                                     if (currentQuestionIndex >= newQuestions.length) {
                                                       setCurrentQuestionIndex(Math.max(0, newQuestions.length - 1));
                                                     }
-                                                  }
-                                                }}
+                                                  }}
                                                 disabled={launchedQuestions.has(currentQuestionIndex)}
                                                 className="text-xs h-7 sm:h-8 px-2 sm:px-3 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
                                               >
@@ -3678,7 +3680,7 @@ export default function TeacherPollRoom() {
                                           </div>
 
                                           <Button
-                                            onClick={() => setModalState((prev) => ({...prev, isOpen: true}))}
+                                            onClick={handleLaunchPoll}
                                             disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
                                             className="w-full lg:w-auto lg:mt-5 bg-purple-600 hover:bg-purple-700 text-white"
                                           >
@@ -4309,16 +4311,7 @@ export default function TeacherPollRoom() {
           </div>
         </div>
       </div>
-       <ConfirmationModal
-        isOpen={modalState.isOpen}
-        onClose={()=> setModalState(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={handleLaunchPoll}
-        title={modalState.title}
-        description={modalState.description}
-        type={modalState.type}
-        confirmText={modalState.confirmText}
-        isLoading={modalState.isLoading}
-      />
+       <ConfirmationModal {...modalProps} />
     </div>
   );
 }
