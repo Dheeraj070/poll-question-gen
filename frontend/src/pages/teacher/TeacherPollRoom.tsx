@@ -206,8 +206,18 @@ export default function TeacherPollRoom() {
 
   // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
-    if (!window.confirm("Are you sure you want to remove this co-host?")) return;
+    
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'delete',
+      title: 'Are you sure you want to remove this co-host?',
+      description: 'This action cannot be undone.',
+      confirmText: 'Remove Co-host',
+    })
+
+    if (!confirmed) return;
     try {
+
       await api.patch(`/livequizzes/rooms/cohost/${roomCode}`, {
         teacherId: currentUser?.uid,
         userId: cohostId
