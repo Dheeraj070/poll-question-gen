@@ -4,7 +4,7 @@ import {
   Edit3,
   X,
   LucideIcon,
-  Info
+  AlertTriangle
 } from 'lucide-react';
 import { ModalState, ModalType } from '@/shared/types';
 
@@ -32,11 +32,11 @@ const themeConfig: Record<ModalType, ThemeStyles> = {
     focusRing: 'focus:ring-blue-500',
   },
   default: {
-    icon: Info,
-    iconColor: 'text-gray-600 dark:text-gray-400',
-    iconBg: 'bg-gray-100 dark:bg-gray-700',
-    confirmBtn: 'bg-gray-800 hover:bg-gray-900 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 text-white',
-    focusRing: 'focus:ring-gray-500',
+    icon: AlertTriangle,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    iconBg: 'bg-amber-100 dark:bg-amber-500/20',
+    confirmBtn: 'bg-amber-500 hover:bg-amber-600 text-white',
+    focusRing: 'focus:ring-amber-500',
   }
 };
 
@@ -95,7 +95,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
       {/* Modal */}
       <div
-        className={`relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 text-left align-middle shadow-2xl transition-all duration-300 ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 sm:translate-y-0'
+        className={`relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 dark:border dark:border-gray-800 text-left align-middle shadow-2xl transition-all duration-300 ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 sm:translate-y-0'
           }`}
       >
         {/* Close button */}
@@ -108,7 +108,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         {/* Content */}
         <div className="px-6 pb-6 pt-8 sm:p-8 sm:flex sm:items-start">
-          <div className={`mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 ${currentTheme.iconBg}`}>
+          <div className={`mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-full sm:mx-0 ${currentTheme.iconBg}`}>
             <Icon className={`h-6 w-6 ${currentTheme.iconColor}`} />
           </div>
 
@@ -116,14 +116,14 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               {title}
             </h3>
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 leading-relaxed whitespace-pre-line">
               {description}
             </p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="bg-gray-50 dark:bg-gray-800/30 px-6 py-4 sm:flex sm:flex-row-reverse sm:px-8 border-t border-gray-100 dark:border-gray-800">
+        <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 sm:flex sm:flex-row-reverse sm:px-8 border-t border-gray-100 dark:border-gray-800">
           <button
             type="button"
             onClick={onConfirm}
