@@ -22,4 +22,13 @@ export interface UserAchievement {
   earnedAt: string;
 }
 
- export type ModalType = 'delete' | 'edit' | 'default';
+export type ModalType = 'delete' | 'edit' | 'default';
+
+export interface ModalState {
+  title: string;
+  description: string;
+  type: ModalType;
+  confirmText?: string;
+  cancelText?: string;
+}
+
