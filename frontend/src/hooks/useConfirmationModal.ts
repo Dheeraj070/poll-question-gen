@@ -13,7 +13,7 @@ export function useConfirmationModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [config, setConfig] = useState<ModalState>(defaultConfig);
 
-  const resolverRef = useRef<((value: boolean)=> void | null)>(null);
+  const resolverRef = useRef<((value: boolean) => void | null)>(null);
 
   const showModal = useCallback((options: ModalState) => {
     setConfig({

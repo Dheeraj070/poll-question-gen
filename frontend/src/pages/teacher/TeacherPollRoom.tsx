@@ -206,7 +206,7 @@ export default function TeacherPollRoom() {
 
   // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
-    
+
     //confirmation before proceeding
     const confirmed = await showModal({
       type: 'delete',
@@ -2028,7 +2028,7 @@ export default function TeacherPollRoom() {
 
   const handleLaunchPoll = async () => {
 
-      //confirmation before proceeding
+    //confirmation before proceeding
     const confirmed = await showModal({
       type: 'default',
       title: 'are you sure you want to launch this poll?',
@@ -2038,30 +2038,30 @@ export default function TeacherPollRoom() {
 
     if (!confirmed) return;
 
-      const currentQ = generatedQuestions[currentQuestionIndex];
-      const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
+    const currentQ = generatedQuestions[currentQuestionIndex];
+    const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
 
-      // Close any open edit mode when launching poll
-      setEditingQuestionIndex(null);
+    // Close any open edit mode when launching poll
+    setEditingQuestionIndex(null);
 
-      // Update state
-      setQuestion(currentQ.question);
-      setOptions([...currentQ.options]);
-      setCorrectOptionIndex(currentQ.correctOptionIndex);
+    // Update state
+    setQuestion(currentQ.question);
+    setOptions([...currentQ.options]);
+    setCorrectOptionIndex(currentQ.correctOptionIndex);
 
-      // Mark as active and start the timer for this question
-      setIsPollActive(true);
-      startTimer(currentQuestionIndex, timerDuration);
+    // Mark as active and start the timer for this question
+    setIsPollActive(true);
+    startTimer(currentQuestionIndex, timerDuration);
 
-      // Use a timeout to ensure state updates are applied
-      setTimeout(() => {
-        setReadyToCreatePoll(true);
-      }, 0);
+    // Use a timeout to ensure state updates are applied
+    setTimeout(() => {
+      setReadyToCreatePoll(true);
+    }, 0);
 
-      setLaunchedQuestions((prev) => {
-        const newSet = new Set(prev).add(currentQuestionIndex);
-        return newSet;
-      });
+    setLaunchedQuestions((prev) => {
+      const newSet = new Set(prev).add(currentQuestionIndex);
+      return newSet;
+    });
 
   };
 
@@ -2377,7 +2377,7 @@ export default function TeacherPollRoom() {
                     {inviteLink ? (
                       <Button
                         variant="outline"
-                        onClick={() => copyToClipboard(inviteLink,"Invite link copied to clipboard!")}
+                        onClick={() => copyToClipboard(inviteLink, "Invite link copied to clipboard!")}
                         className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
                       >
                         <Copy size={16} />
@@ -3470,21 +3470,21 @@ export default function TeacherPollRoom() {
                                               <Button
                                                 variant="outline"
                                                 size="sm"
-                                                  onClick={async () => {
-                                                    const confirmed = await showModal({
-                                                      type: 'delete',
-                                                      title: 'are you sure you want to delete this question?',
-                                                      description: 'This action cannot be undone.',
-                                                      confirmText: 'Delete Question',
-                                                    })
-                                                    if (!confirmed) return;
-                                                    const newQuestions = [...generatedQuestions];
-                                                    newQuestions.splice(currentQuestionIndex, 1);
-                                                    setGeneratedQuestions(newQuestions);
-                                                    if (currentQuestionIndex >= newQuestions.length) {
-                                                      setCurrentQuestionIndex(Math.max(0, newQuestions.length - 1));
-                                                    }
-                                                  }}
+                                                onClick={async () => {
+                                                  const confirmed = await showModal({
+                                                    type: 'delete',
+                                                    title: 'are you sure you want to delete this question?',
+                                                    description: 'This action cannot be undone.',
+                                                    confirmText: 'Delete Question',
+                                                  })
+                                                  if (!confirmed) return;
+                                                  const newQuestions = [...generatedQuestions];
+                                                  newQuestions.splice(currentQuestionIndex, 1);
+                                                  setGeneratedQuestions(newQuestions);
+                                                  if (currentQuestionIndex >= newQuestions.length) {
+                                                    setCurrentQuestionIndex(Math.max(0, newQuestions.length - 1));
+                                                  }
+                                                }}
                                                 disabled={launchedQuestions.has(currentQuestionIndex)}
                                                 className="text-xs h-7 sm:h-8 px-2 sm:px-3 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
                                               >
@@ -3682,7 +3682,7 @@ export default function TeacherPollRoom() {
                                               onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
                                               className="dark:bg-gray-800/50 text-sm w-full sm:w-36"
                                               aria-label="Maximum points for this generated poll"
-                                              disabled={launchedQuestions.has(currentQuestionIndex)||questionTimers[currentQuestionIndex]?.isActive}
+                                              disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">
                                               Maximum score awarded for a correct answer.
@@ -4321,7 +4321,7 @@ export default function TeacherPollRoom() {
           </div>
         </div>
       </div>
-       <ConfirmationModal {...modalProps} />
+      <ConfirmationModal {...modalProps} />
     </div>
   );
 }
