@@ -19,13 +19,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import socket from "@/lib/api/socket";
 import { CohostUser } from "@/shared/types";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import { useConfirmationModal } from "@/hooks/useConfirmationModal";
 
 
-const copyToClipboard = (text: string) => {
+
+const copyToClipboard = (text: string, message: string) => {
   navigator.clipboard.writeText(text).then(() => {
-    toast.success("Room code copied to clipboard!");
+    toast.success(message ?? 'Copied to clipboard!');
   }).catch(() => {
-    toast.error("Failed to copy room code");
+    toast.error("Failed to copy to clipboard");
   });
 };
 
@@ -94,6 +97,7 @@ type GeneratedQuestion = {
 export default function TeacherPollRoom() {
   const params = useParams({ from: '/teacher/pollroom/$code' });
   const navigate = useNavigate();
+  const { showModal, modalProps } = useConfirmationModal();
   const roomCode: string = params.code as string;
   const { user: currentUser } = useAuthStore();
   const [_isTranscriptionSettling, _setIsTranscriptionSettling] = useState(false);
@@ -202,8 +206,18 @@ export default function TeacherPollRoom() {
 
   // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
-    if (!window.confirm("Are you sure you want to remove this co-host?")) return;
+
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'delete',
+      title: 'Are you sure you want to remove this co-host?',
+      description: 'This action cannot be undone.',
+      confirmText: 'Remove Co-host',
+    })
+
+    if (!confirmed) return;
     try {
+
       await api.patch(`/livequizzes/rooms/cohost/${roomCode}`, {
         teacherId: currentUser?.uid,
         userId: cohostId
@@ -243,6 +257,16 @@ export default function TeacherPollRoom() {
   };
 
   const LeaveCohost = async (roomCode: string, cohostId: string) => {
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to end this room?',
+      description: `This action cannot be undone.
+      You will lose access to this room and all its data.`,
+      confirmText: 'Leave Room',
+    })
+
+    if (!confirmed) return;
     socket.emit('cohost-leave', roomCode, cohostId)
     toast.info("Left the room.");
     navigate({ to: `/teacher/cohosted-rooms` });
@@ -1288,6 +1312,18 @@ export default function TeacherPollRoom() {
   };
 
   const endRoom = async () => {
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to end this room?',
+      description: `This action cannot be undone.
+• All students will be disconnected
+• Active polls will be stopped
+• The room will be permanently closed`,
+      confirmText: 'End Room',
+    })
+
+    if (!confirmed) return;
     setIsEndingRoom(true);
     try {
       await api.post(`/livequizzes/rooms/${roomCode}/end`, {
@@ -1979,9 +2015,20 @@ export default function TeacherPollRoom() {
       });
     }, 1000);
   };
-  const handleRemoveStudent = (studentEmail: string) => {
+  const handleRemoveStudent = async(studentEmail: string) => {
 
     if (!studentEmail) return;
+
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to remove this student?',
+      description: `This action cannot be undone.
+      The student will be immediately disconnected from the room`,
+      confirmText: 'Remove Student',
+    })
+
+    if (!confirmed) return;
 
     socket.emit("remove-student", {
       roomCode,
@@ -2013,34 +2060,42 @@ export default function TeacherPollRoom() {
   };
 
   const handleLaunchPoll = async () => {
-    const confirmed = window.confirm('Are you sure you want to launch this poll?');
 
-    if (confirmed) {
-      const currentQ = generatedQuestions[currentQuestionIndex];
-      const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to launch this poll?',
+      description: 'Once launched, students will be able to see the question and submit their responses. the poll will run until the timer expires.',
+      confirmText: 'Launch Poll',
+    })
 
-      // Close any open edit mode when launching poll
-      setEditingQuestionIndex(null);
+    if (!confirmed) return;
 
-      // Update state
-      setQuestion(currentQ.question);
-      setOptions([...currentQ.options]);
-      setCorrectOptionIndex(currentQ.correctOptionIndex);
+    const currentQ = generatedQuestions[currentQuestionIndex];
+    const timerDuration = questionTimers[currentQuestionIndex]?.initialTime || 30;
 
-      // Mark as active and start the timer for this question
-      setIsPollActive(true);
-      startTimer(currentQuestionIndex, timerDuration);
+    // Close any open edit mode when launching poll
+    setEditingQuestionIndex(null);
 
-      // Use a timeout to ensure state updates are applied
-      setTimeout(() => {
-        setReadyToCreatePoll(true);
-      }, 0);
+    // Update state
+    setQuestion(currentQ.question);
+    setOptions([...currentQ.options]);
+    setCorrectOptionIndex(currentQ.correctOptionIndex);
 
-      setLaunchedQuestions((prev) => {
-        const newSet = new Set(prev).add(currentQuestionIndex);
-        return newSet;
-      });
-    }
+    // Mark as active and start the timer for this question
+    setIsPollActive(true);
+    startTimer(currentQuestionIndex, timerDuration);
+
+    // Use a timeout to ensure state updates are applied
+    setTimeout(() => {
+      setReadyToCreatePoll(true);
+    }, 0);
+
+    setLaunchedQuestions((prev) => {
+      const newSet = new Set(prev).add(currentQuestionIndex);
+      return newSet;
+    });
+
   };
 
   if (!roomCode) return <div>Loading...</div>;
@@ -2338,7 +2393,7 @@ export default function TeacherPollRoom() {
                 </div>
 
                 <Button
-                  onClick={() => copyToClipboard(roomCode)}
+                  onClick={() => copyToClipboard(roomCode, "Room code copied to clipboard!")}
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1 sm:gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 text-xs sm:text-sm"
@@ -2355,7 +2410,7 @@ export default function TeacherPollRoom() {
                     {inviteLink ? (
                       <Button
                         variant="outline"
-                        onClick={() => copyToClipboard(inviteLink)}
+                        onClick={() => copyToClipboard(inviteLink, "Invite link copied to clipboard!")}
                         className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/30"
                       >
                         <Copy size={16} />
@@ -2374,13 +2429,22 @@ export default function TeacherPollRoom() {
                     )}
 
                     <Button
-                      onClick={() => setShowEndRoomConfirm(true)}
+                      onClick={endRoom}
                       variant="destructive"
                       className="hidden sm:flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
                       disabled={isEndingRoom}
                     >
-                      <LogOut size={16} />
-                      <span className="xs:inline">End Room</span>
+                      {isEndingRoom ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Ending Room...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut size={16} />
+                          <span className="xs:inline">End Room</span>
+                        </>
+                      )}
                     </Button>
                   </>
                 )}
@@ -2480,15 +2544,24 @@ export default function TeacherPollRoom() {
                       <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                         <Button
                           onClick={() => {
-                            setShowEndRoomConfirm(true);
                             setIsMobileMenuOpen(false);
+                            endRoom();
                           }}
                           variant="destructive"
                           className="w-full justify-start"
                           disabled={isEndingRoom}
                         >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          End Room
+                          {isEndingRoom ? (
+                              <>
+                                <Loader2 size={16} className="animate-spin" />
+                                Ending Room...
+                              </>
+                            ) : (
+                              <>
+                                <LogOut className="w-4 h-4 mr-2" />
+                                End Room
+                              </>
+                            )}
                         </Button>
                       </div>
                     )
@@ -2499,7 +2572,7 @@ export default function TeacherPollRoom() {
               {/* Main content area */}
               <div className="flex-1 overflow-auto md:pt-4">
                 {/* End Room Confirmation Modal */}
-                {showEndRoomConfirm && (
+                {/* {showEndRoomConfirm && (
                   <div className="fixed inset-0 z-50 flex justify-center bg-black/50">
                     <Card className="w-full max-w-md mx-3 bg-white dark:bg-gray-800">
                       <CardHeader>
@@ -2547,7 +2620,7 @@ export default function TeacherPollRoom() {
                       </CardContent>
                     </Card>
                   </div>
-                )}
+                )} */}
 
                 {/* GenAI Tab */}
                 <div className="flex-1 px-1 border-r border-r-slate-200 dark:border-r-gray-700 bg-white/90 dark:bg-gray-900/90 shadow">
@@ -3448,14 +3521,19 @@ export default function TeacherPollRoom() {
                                               <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => {
-                                                  if (window.confirm('Are you sure you want to delete this question?')) {
-                                                    const newQuestions = [...generatedQuestions];
-                                                    newQuestions.splice(currentQuestionIndex, 1);
-                                                    setGeneratedQuestions(newQuestions);
-                                                    if (currentQuestionIndex >= newQuestions.length) {
-                                                      setCurrentQuestionIndex(Math.max(0, newQuestions.length - 1));
-                                                    }
+                                                onClick={async () => {
+                                                  const confirmed = await showModal({
+                                                    type: 'delete',
+                                                    title: 'are you sure you want to delete this question?',
+                                                    description: 'This action cannot be undone.',
+                                                    confirmText: 'Delete Question',
+                                                  })
+                                                  if (!confirmed) return;
+                                                  const newQuestions = [...generatedQuestions];
+                                                  newQuestions.splice(currentQuestionIndex, 1);
+                                                  setGeneratedQuestions(newQuestions);
+                                                  if (currentQuestionIndex >= newQuestions.length) {
+                                                    setCurrentQuestionIndex(Math.max(0, newQuestions.length - 1));
                                                   }
                                                 }}
                                                 disabled={launchedQuestions.has(currentQuestionIndex)}
@@ -3655,7 +3733,7 @@ export default function TeacherPollRoom() {
                                               onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
                                               className="dark:bg-gray-800/50 text-sm w-full sm:w-36"
                                               aria-label="Maximum points for this generated poll"
-                                              disabled={launchedQuestions.has(currentQuestionIndex)||questionTimers[currentQuestionIndex]?.isActive}
+                                              disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">
                                               Maximum score awarded for a correct answer.
@@ -4294,6 +4372,7 @@ export default function TeacherPollRoom() {
           </div>
         </div>
       </div>
+      <ConfirmationModal {...modalProps} />
     </div>
   );
 }
