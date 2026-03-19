@@ -339,7 +339,7 @@ export default function TeacherPollRoom() {
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctOptionIndex, setCorrectOptionIndex] = useState<number>(0);
   const [timer, _setTimer] = useState<number>(30);
-  const [maxPoints, setMaxPoints] = useState<number>(20);
+  const [maxPoints, setMaxPoints] = useState<number | ''>(20);
   const [pollResults, setPollResults] = useState<PollResults>({});
   // State for live poll results
   type LivePollResult = {
@@ -1318,8 +1318,8 @@ export default function TeacherPollRoom() {
         creatorId: currentUser?.uid,
         // timer: Number(timer),
         // creatorId: currentUser?.userId,
-        timer: Number(questionTimers[currentQuestionIndex]?.initialTime ?? timer),
-        maxPoints: Number(maxPoints),
+        timer: Number(questionTimers[currentQuestionIndex]?.initialTime || timer || 30),
+        maxPoints: Number(maxPoints || 20),
         correctOptionIndex
       });
 
@@ -1904,7 +1904,7 @@ export default function TeacherPollRoom() {
   const [questionTimers, setQuestionTimers] = useState<Record<number, {
     timeLeft: number;
     isActive: boolean;
-    initialTime: number; // Store initial time for each question
+    initialTime: number | ''; // Store initial time for each question
     isLaunched: boolean; // Mark as launched to disable edit
   }>>({});
   const [currentPollResponses, setCurrentPollResponses] = useState(0);
@@ -3617,14 +3617,14 @@ export default function TeacherPollRoom() {
                                                   value={questionTimers[currentQuestionIndex]?.initialTime ?? 30}
                                                   min={5}
                                                   onChange={(e) => {
-                                                    const newTime = Number(e.target.value);
+                                                    const newTime = e.target.value === '' ? '' : Number(e.target.value);
                                                     setQuestionTimers(prev => ({
                                                       ...prev,
                                                       [currentQuestionIndex]: {
                                                         ...(prev[currentQuestionIndex] || { isActive: false, timeLeft: 0 }),
                                                         initialTime: newTime,
                                                         timeLeft: prev[currentQuestionIndex]?.isActive
-                                                          ? newTime
+                                                          ? Number(newTime)
                                                           : (prev[currentQuestionIndex]?.timeLeft || 0)
                                                       }
                                                     }));
@@ -3652,10 +3652,10 @@ export default function TeacherPollRoom() {
                                               type="number"
                                               value={maxPoints}
                                               min={1}
-                                              onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
+                                              onChange={(e) => setMaxPoints(e.target.value === '' ? '' : Number(e.target.value))}
                                               className="dark:bg-gray-800/50 text-sm w-full sm:w-36"
                                               aria-label="Maximum points for this generated poll"
-                                              disabled={launchedQuestions.has(currentQuestionIndex)||questionTimers[currentQuestionIndex]?.isActive}
+                                              disabled={launchedQuestions.has(currentQuestionIndex) || questionTimers[currentQuestionIndex]?.isActive}
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">
                                               Maximum score awarded for a correct answer.
@@ -3878,16 +3878,16 @@ export default function TeacherPollRoom() {
                           <Input
                             type="number"
                             placeholder="e.g. 30"
-                            value={questionTimers[currentQuestionIndex]?.initialTime ? questionTimers[currentQuestionIndex]?.initialTime : 30}
+                            value={questionTimers[currentQuestionIndex]?.initialTime !== undefined ? questionTimers[currentQuestionIndex]?.initialTime : 30}
                             min={5}
                             onChange={(e) => {
-                              const newTime = Number(e.target.value);
+                              const newTime = e.target.value === '' ? '' : Number(e.target.value);
                               setQuestionTimers(prev => ({
                                 ...prev,
                                 [currentQuestionIndex]: {
                                   ...(prev[currentQuestionIndex] || { timeLeft: 0, isActive: false, initialTime: 30 }),
                                   initialTime: newTime,
-                                  timeLeft: prev[currentQuestionIndex]?.isActive ? newTime : (prev[currentQuestionIndex]?.timeLeft || newTime)
+                                  timeLeft: prev[currentQuestionIndex]?.isActive ? Number(newTime) : (prev[currentQuestionIndex]?.timeLeft || Number(newTime))
                                 }
                               }));
                             }}
@@ -3908,7 +3908,7 @@ export default function TeacherPollRoom() {
                           type="number"
                           value={maxPoints}
                           min={1}
-                          onChange={(e) => setMaxPoints(Number(e.target.value) || 20)}
+                          onChange={(e) => setMaxPoints(e.target.value === '' ? '' : Number(e.target.value))}
                           className="dark:bg-gray-800/50 text-sm w-36"
                           aria-label="Maximum points for this poll"
                         />

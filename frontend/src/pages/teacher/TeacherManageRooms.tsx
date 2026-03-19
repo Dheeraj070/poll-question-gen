@@ -44,6 +44,12 @@ export default function ManageRoom() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [endingRoom, setEndingRoom] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const fetchRooms = async () => {
@@ -97,10 +103,10 @@ export default function ManageRoom() {
         const start = new Date(room.createdAt).getTime();
         const end = room.status === 'ended' && room.endedAt
             ? new Date(room.endedAt).getTime()
-            : Date.now();
+            : currentTime;
         const diffMs = Math.max(0, end - start);
         const diffMins = Math.ceil(diffMs / 60000);
-        return `${diffMins} mins`;
+        return `${Math.max(1, diffMins)} mins`;
     };
 
     /* const getStatusColor = (status: string) => {

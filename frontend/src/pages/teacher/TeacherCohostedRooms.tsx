@@ -37,6 +37,12 @@ export default function TeacherCohostedRooms() {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const fetchCohostedRooms = async () => {
@@ -120,10 +126,10 @@ export default function TeacherCohostedRooms() {
         const start = new Date(room.createdAt).getTime();
         const end = room.status === 'ended' && room.endedAt
             ? new Date(room.endedAt).getTime()
-            : Date.now();
+            : currentTime;
         const diffMs = Math.max(0, end - start);
         const diffMins = Math.ceil(diffMs / 60000);
-        return `${diffMins} mins`;
+        return `${Math.max(1, diffMins)} mins`;
     };
 
     const handleReturnToRoom = (roomCode: string, event: React.MouseEvent) => {
