@@ -257,6 +257,16 @@ export default function TeacherPollRoom() {
   };
 
   const LeaveCohost = async (roomCode: string, cohostId: string) => {
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to end this room?',
+      description: `This action cannot be undone.
+      You will lose access to this room and all its data.`,
+      confirmText: 'Leave Room',
+    })
+
+    if (!confirmed) return;
     socket.emit('cohost-leave', roomCode, cohostId)
     toast.info("Left the room.");
     navigate({ to: `/teacher/cohosted-rooms` });
