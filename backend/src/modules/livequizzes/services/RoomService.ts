@@ -26,11 +26,12 @@ export class RoomService {
       polls: []
     }).save();
 
-    return newRoom.toObject();  // return plain object
+    return this.mapRoom(newRoom.toObject());  // return plain object
   }
 
   async getRoomByCode(code: string): Promise<RoomType | null> {
-    return await Room.findOne({ roomCode: code }).populate('students', 'firstName email').lean()
+    const room = await Room.findOne({ roomCode: code }).populate('students', 'firstName email').lean();
+    return room ? this.mapRoom(room) : null;
   }
 
   async getRoomsByTeacher(teacherId: string, status?: 'active' | 'ended'): Promise<RoomType[]> {
@@ -190,15 +191,18 @@ export class RoomService {
   }
 
   async getAllRooms(): Promise<RoomType[]> {
-    return await Room.find().lean();
+    const rooms = await Room.find().lean();
+    return rooms.map(room => this.mapRoom(room));
   }
 
   async getActiveRooms(): Promise<RoomType[]> {
-    return await Room.find({ status: 'active' }).lean();
+    const rooms = await Room.find({ status: 'active' }).lean();
+    return rooms.map(room => this.mapRoom(room));
   }
 
   async getEndedRooms(): Promise<RoomType[]> {
-    return await Room.find({ status: 'ended' }).lean();
+    const rooms = await Room.find({ status: 'ended' }).lean();
+    return rooms.map(room => this.mapRoom(room));
   }
   /**
    * Map Mongoose Room Document to plain RoomType matching interface
@@ -211,7 +215,8 @@ export class RoomService {
       createdAt: roomDoc.createdAt,
       endedAt: roomDoc.endedAt,
       status: roomDoc.status,
-      totalStudents: new Set(roomDoc.students?.map((s: any) => s.toString()) || []).size,
+      // Safely handle populated objects (s._id) or raw strings
+      totalStudents: new Set(roomDoc.students?.map((s: any) => s._id ? s._id.toString() : s.toString()) || []).size,
       coHosts: roomDoc.coHosts,
       controls: roomDoc.controls || { micBlocked: false, pollRestricted: false },
       polls: (roomDoc.polls || []).map((p: any): Poll => ({
