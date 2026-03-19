@@ -2015,9 +2015,20 @@ export default function TeacherPollRoom() {
       });
     }, 1000);
   };
-  const handleRemoveStudent = (studentEmail: string) => {
+  const handleRemoveStudent = async(studentEmail: string) => {
 
     if (!studentEmail) return;
+
+    //confirmation before proceeding
+    const confirmed = await showModal({
+      type: 'default',
+      title: 'are you sure you want to remove this student?',
+      description: `This action cannot be undone.
+      The student will be immediately disconnected from the room`,
+      confirmText: 'Remove Student',
+    })
+
+    if (!confirmed) return;
 
     socket.emit("remove-student", {
       roomCode,
