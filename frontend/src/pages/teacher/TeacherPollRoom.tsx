@@ -3821,9 +3821,9 @@ export default function TeacherPollRoom() {
                             Generated Questions (from AI)
                           </h4>
 
-                          <ScrollArea className="h-[calc(100vh-300px)] w-full rounded-md">
+                          <ScrollArea className="h-[calc(100vh-300px)] w-full rounded-md p-2.5">
                             <div className="overflow-y-auto pr-2 flex-1">
-                              <div className="space-y-4">
+                              <div className="space-y-4 mr-3">
                                 {generatedQuestions.map((q, idx) => (
                                   <div
                                     key={idx}
@@ -3879,7 +3879,7 @@ export default function TeacherPollRoom() {
                                       </div>
                                     </div>
 
-                                    <div className="absolute -right-3 top-1/2 transform -translate-y-1/2 flex flex-col gap-2">
+                                    <div className="absolute -right-4.5 top-1/2 transform -translate-y-1/2 flex flex-col gap-1">
                                       <Button
                                         variant="ghost"
                                         size="icon"
