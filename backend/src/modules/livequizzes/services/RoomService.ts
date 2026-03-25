@@ -167,9 +167,19 @@ export class RoomService {
     return rooms.map(room => this.mapRoom(room));
   }
 
-  async isRoomValid(code: string): Promise<boolean> {
+  async isRoomValidAndHasAccess(code: string, userId: string): Promise<{ isActive: boolean; hasAccess: boolean;}> {
+
+    const result = {isActive: true, hasAccess: false}
     const room = await Room.findOne({ roomCode: code }).lean();
-    return !!room && room.status.toLowerCase() === 'active';
+    
+    if (!room || room.status.toLowerCase() !== 'active') {
+    result['isActive'] = false;
+  }
+  
+  if(room.teacherId === userId ||
+      room.coHosts?.some(coHost => coHost.userId === userId && coHost.isActive))result['hasAccess']=true
+    return result;
+
   }
 
   async isRoomEnded(code: string): Promise<boolean> {

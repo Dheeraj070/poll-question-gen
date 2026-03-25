@@ -178,8 +178,13 @@ export default function TeacherPollRoom() {
   useEffect(() => {
     const fetchRoomDetails = async () => {
       try {
-        if (!roomCode) return;
-        const res = await api.get(`/livequizzes/rooms/${roomCode}`);
+        if (!roomCode || !currentUser?.uid) return;
+        const res = await api.get(`/livequizzes/rooms/${roomCode}`, {
+          params: {
+            userId: currentUser.uid,
+            role: 'teacher',
+          },
+        });
 
         if (res.data.success && res.data.room?.controls) {
           const { micBlocked, pollRestricted } = res.data.room.controls;
@@ -195,14 +200,19 @@ export default function TeacherPollRoom() {
           } else {
             setRoomControlMode('full');
           }
+        } else if (!res.data.success) {
+          toast.error(res.data.message || 'You do not have access to this room');
+          navigate({ to: '/teacher/manage-rooms' });
         }
       } catch (error) {
         console.error("Error fetching room details:", error);
+        toast.error('Unable to load this room');
+        navigate({ to: '/teacher/manage-rooms' });
       }
     };
 
     fetchRoomDetails();
-  }, [roomCode]);
+  }, [roomCode, currentUser?.uid, navigate]);
 
   // 2. Remove Cohost API 
   const handleRemoveCohost = async (cohostId: string) => {
@@ -503,9 +513,10 @@ export default function TeacherPollRoom() {
 
     // Join room function
     const joinRoom = () => {
-      socket.emit('join-room', roomCode, (response: any) => {
+      socket.emit('join-room', { roomCode, user: currentUser?.uid }, (response: any) => {
         if (response?.status === 'error') {
           // Error joining room
+          console.log('Error joining room:', response);
         } else {
           setJoinedRoom(true);
         }

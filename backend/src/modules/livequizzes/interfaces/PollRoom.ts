@@ -35,6 +35,13 @@ export interface Room {
     pollRestricted: boolean;
   };
   joinedStudents?: string[];
+  coHosts?: {
+    userId: string;
+    isActive: boolean;
+    addedBy: string;
+    isMicMuted: boolean;
+    addedAt: Date;
+  }[];
 }
 
 export interface CohostJwtPayload extends JwtPayload {

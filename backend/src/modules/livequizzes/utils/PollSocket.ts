@@ -31,12 +31,19 @@ class PollSocket {
     this.io.on('connection', socket => {
       console.log('Client connected', socket.id);
 
-      socket.on('join-room', async (roomCode: string, email: string) => {
+      socket.on('join-room', async (data: { roomCode: string; email?: string; user?: string; role?: string; }) => {
         try {
-          const isActive = await this.roomService.isRoomValid(roomCode);
+          const { roomCode, email, user, role } = data;
+          const {isActive, hasAccess} = await this.roomService.isRoomValidAndHasAccess(roomCode, user);
+
+          if(role === 'teacher' && !hasAccess) {
+            console.log('this teacher does not have access to the room:', roomCode);
+            socket.emit('room-ended');
+            return;
+          }  
+         
           if (typeof email === 'string' && email.trim() !== '') {
             const user = await this.userRepo.findByEmail(email)
-            console.log('user:', user)
             const userId = user?._id;
             socket.data.userId = user?.firebaseUID;
             await this.roomService.enrollStudent(userId as string, roomCode, user?.firebaseUID as string)
@@ -61,7 +68,7 @@ class PollSocket {
             console.log(`Socket ${socket.id} joined active room: ${roomCode}`);
             console.log(`Active connections: ${this.activeConnections.size}`);
           } else {
-            console.log(`Join failed: room ended or invalid: ${roomCode}`);
+            console.log(`Join failed: room ended or invalid or access is restricted: ${roomCode}`);
             socket.emit('room-ended');  // immediately tell the client
           }
         } catch (err) {
