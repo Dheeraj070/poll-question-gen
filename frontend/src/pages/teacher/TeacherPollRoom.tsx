@@ -3836,7 +3836,7 @@ export default function TeacherPollRoom() {
                                           AI Generated
                                         </span>
                                       </div>
-                                      <Button
+                                      {/* <Button
                                         size="sm"
                                         variant="outline"
                                         className="h-8 px-3 text-xs border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -3844,7 +3844,7 @@ export default function TeacherPollRoom() {
                                       >
                                         <Check className="w-3 h-3 mr-1" />
                                         Use This
-                                      </Button>
+                                      </Button> */}
                                     </div>
 
                                     {/* Question Text */}
