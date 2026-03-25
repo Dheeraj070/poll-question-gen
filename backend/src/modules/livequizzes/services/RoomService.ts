@@ -225,6 +225,7 @@ export class RoomService {
       createdAt: roomDoc.createdAt,
       endedAt: roomDoc.endedAt,
       status: roomDoc.status,
+      students: roomDoc.students,
       // Safely handle populated objects (s._id) or raw strings
       totalStudents: new Set(roomDoc.students?.map((s: any) => s._id ? s._id.toString() : s.toString()) || []).size,
       coHosts: roomDoc.coHosts,
